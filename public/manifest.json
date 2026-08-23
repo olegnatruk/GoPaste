@@ -3,7 +3,14 @@
   "name": "GoPaste",
   "description": "Save, organize, and share images and GIFs from a local library.",
   "version": "0.1.0",
-  "permissions": ["contextMenus", "downloads", "pageCapture", "scripting", "unlimitedStorage"],
+  "permissions": [
+    "clipboardWrite",
+    "contextMenus",
+    "downloads",
+    "pageCapture",
+    "scripting",
+    "unlimitedStorage"
+  ],
   "host_permissions": ["<all_urls>"],
   "action": {
     "default_title": "Open GoPaste",

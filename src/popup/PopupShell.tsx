@@ -1,38 +1,25 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type DragEvent } from "react";
 
 import type { MediaPageQuery, MediaRecord } from "../core/domain/media";
 import type { MediaRepository } from "../core/ports/media-repository";
+import type { ClipboardWriter } from "../core/ports/platform";
+import { BrowserClipboardWriter } from "../infrastructure/clipboard/browser-clipboard-writer";
+import { setImageFileDragData } from "../infrastructure/clipboard/portable-drag";
 import { BrandMark } from "../shared/BrandMark";
 import type { CaptureStatus } from "../shared/messages";
 
 const PAGE_SIZE = 24;
 
-export interface PopupLibrary {
-  list: MediaRepository["list"];
-  updateMetadata: MediaRepository["updateMetadata"];
-  delete: MediaRepository["delete"];
-}
+export type PopupLibrary = Pick<MediaRepository, "list">;
 
 export interface PopupShellProps {
   library: PopupLibrary;
   loadCaptureStatus?: () => Promise<CaptureStatus>;
   subscribeToLibraryChanges?: (onChange: () => void) => () => void;
-  confirmDelete?: (item: MediaRecord) => boolean;
-  renderShareActions?: (item: MediaRecord) => ReactNode;
+  clipboardWriter?: ClipboardWriter;
+  onCopyUsage?: (item: MediaRecord) => void | Promise<void>;
+  onDragUsage?: (item: MediaRecord) => void | Promise<void>;
   onOpenDashboard?: () => void;
-}
-
-function normalizeTags(value: string): string[] {
-  const seen = new Set<string>();
-  return value
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter((tag) => {
-      const key = tag.toLocaleLowerCase();
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
 }
 
 function captureMessage(status: CaptureStatus): string | undefined {
@@ -64,96 +51,50 @@ function useObjectUrl(blob: Blob): string | undefined {
 
 interface MediaCardProps {
   item: MediaRecord;
-  onSave: (item: MediaRecord, title: string, tags: string[]) => Promise<void>;
-  onDelete: (item: MediaRecord) => Promise<void>;
-  renderShareActions?: (item: MediaRecord) => ReactNode;
+  onCopy: (item: MediaRecord) => void;
+  onDragStart: (event: DragEvent<HTMLImageElement>, item: MediaRecord) => void;
 }
 
-function MediaCard({ item, onSave, onDelete, renderShareActions }: MediaCardProps) {
+function MediaCard({ item, onCopy, onDragStart }: MediaCardProps) {
   const imageUrl = useObjectUrl(item.blob);
-  const [editing, setEditing] = useState(false);
-  const [title, setTitle] = useState(item.title);
-  const [tags, setTags] = useState(item.tags.join(", "));
-  const [busy, setBusy] = useState(false);
-
-  async function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    try {
-      await onSave(item, title, normalizeTags(tags));
-      setEditing(false);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function cancelEdit() {
-    setTitle(item.title);
-    setTags(item.tags.join(", "));
-    setEditing(false);
-  }
 
   return (
-    <article
-      className={`media-card${editing ? " media-card--editing" : ""}`}
-      aria-label={item.title || "Untitled image"}
-    >
+    <article className="media-card" aria-label={item.title || "Untitled image"}>
       <div className="media-card__preview">
         {imageUrl ? (
-          <img src={imageUrl} alt={item.title || "Saved image"} loading="lazy" />
+          <img
+            src={imageUrl}
+            alt={item.title || "Saved image"}
+            aria-label={`Copy ${item.title || "saved image"} to clipboard; drag to Messenger`}
+            draggable
+            loading="lazy"
+            role="button"
+            tabIndex={0}
+            title="Click to copy. Drag to Messenger."
+            onClick={() => onCopy(item)}
+            onDragStart={(event) => onDragStart(event, item)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" && event.key !== " ") return;
+              event.preventDefault();
+              onCopy(item);
+            }}
+          />
         ) : (
           <span>Loading preview…</span>
         )}
       </div>
-
-      {editing ? (
-        <form className="media-card__editor" onSubmit={(event) => void save(event)}>
-          <label>
-            Title
-            <input value={title} onChange={(event) => setTitle(event.target.value)} />
-          </label>
-          <label>
-            Tags
-            <input
-              value={tags}
-              onChange={(event) => setTags(event.target.value)}
-              placeholder="funny, reaction"
-              aria-describedby={`tag-help-${item.id}`}
-            />
-          </label>
-          <small id={`tag-help-${item.id}`}>Separate tags with commas.</small>
-          <div className="media-card__actions media-card__actions--edit">
-            <button type="submit" disabled={busy}>
-              {busy ? "Saving…" : "Save"}
-            </button>
-            <button type="button" onClick={cancelEdit} disabled={busy}>
-              Cancel
-            </button>
-          </div>
-        </form>
-      ) : (
-        <div className="media-card__body">
-          <h2>{item.title || "Untitled"}</h2>
-          {item.tags.length ? (
-            <ul className="tag-list" aria-label="Tags">
-              {item.tags.map((tag) => (
-                <li key={tag.toLocaleLowerCase()}>{tag}</li>
-              ))}
-            </ul>
-          ) : (
-            <span className="media-card__untagged">Untagged</span>
-          )}
-          <div className="media-card__actions">
-            {renderShareActions?.(item)}
-            <button className="button--quiet" type="button" onClick={() => setEditing(true)}>
-              Edit
-            </button>
-            <button className="button--danger" type="button" onClick={() => void onDelete(item)}>
-              Delete
-            </button>
-          </div>
-        </div>
-      )}
+      <div className="media-card__body">
+        <h2>{item.title || "Untitled"}</h2>
+        {item.tags.length ? (
+          <ul className="tag-list" aria-label="Tags">
+            {item.tags.map((tag) => (
+              <li key={tag.toLocaleLowerCase()}>{tag}</li>
+            ))}
+          </ul>
+        ) : (
+          <span className="media-card__untagged">Untagged</span>
+        )}
+      </div>
     </article>
   );
 }
@@ -162,8 +103,9 @@ export function PopupShell({
   library,
   loadCaptureStatus,
   subscribeToLibraryChanges,
-  confirmDelete = (item) => window.confirm(`Delete “${item.title || "Untitled"}”?`),
-  renderShareActions,
+  clipboardWriter,
+  onCopyUsage,
+  onDragUsage,
   onOpenDashboard,
 }: PopupShellProps) {
   const [items, setItems] = useState<MediaRecord[]>([]);
@@ -176,6 +118,8 @@ export function PopupShell({
   const [notice, setNotice] = useState<string>();
   const [captureStatus, setCaptureStatus] = useState<CaptureStatus>();
   const [refreshToken, setRefreshToken] = useState(0);
+  const defaultClipboardWriter = useMemo(() => new BrowserClipboardWriter(), []);
+  const writer = clipboardWriter ?? defaultClipboardWriter;
 
   const query = useMemo<MediaPageQuery>(
     () => ({
@@ -248,30 +192,32 @@ export function PopupShell({
     }
   }
 
-  async function saveItem(item: MediaRecord, title: string, tags: string[]) {
-    setNotice(undefined);
-    try {
-      const updated = await library.updateMetadata(item.id, { title, tags });
-      setItems((current) => current.map((value) => (value.id === updated.id ? updated : value)));
-      setNotice("Changes saved.");
-    } catch (saveError) {
-      setNotice(saveError instanceof Error ? saveError.message : "Changes could not be saved.");
-      throw saveError;
+  function startImageDrag(event: DragEvent<HTMLImageElement>, item: MediaRecord) {
+    const result = setImageFileDragData(event.dataTransfer, item);
+    if (result === "none") {
+      event.preventDefault();
+      setNotice("This image could not be prepared for drag and drop.");
+      return;
     }
+    setNotice(
+      result === "file"
+        ? "Dragging image file. Drop it into Messenger."
+        : "File drag is unavailable; dragging the original image link instead.",
+    );
+    void onDragUsage?.(item);
   }
 
-  async function deleteItem(item: MediaRecord) {
-    if (!confirmDelete(item)) return;
-    setNotice(undefined);
+  async function copyImage(item: MediaRecord) {
+    setNotice("Copying image…");
     try {
-      const deleted = await library.delete(item.id);
-      if (!deleted) throw new Error("The image no longer exists.");
-      setItems((current) => current.filter((value) => value.id !== item.id));
-      setNotice("Image deleted.");
-    } catch (deleteError) {
-      setNotice(
-        deleteError instanceof Error ? deleteError.message : "The image could not be deleted.",
-      );
+      const result = await writer.writeImage(item.blob, undefined, item.id);
+      if (result.method !== "binary") {
+        throw new Error("Binary clipboard copy was not available.");
+      }
+      setNotice("Image copied. Paste in Messenger to attach it.");
+      void onCopyUsage?.(item);
+    } catch {
+      setNotice("Chrome could not copy this item as a binary image or GIF.");
     }
   }
 
@@ -383,9 +329,8 @@ export function PopupShell({
               <MediaCard
                 key={item.id}
                 item={item}
-                onSave={saveItem}
-                onDelete={deleteItem}
-                renderShareActions={renderShareActions}
+                onCopy={(target) => void copyImage(target)}
+                onDragStart={startImageDrag}
               />
             ))}
           </section>

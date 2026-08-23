@@ -17,6 +17,8 @@ export interface ClipboardEnvironment {
   ClipboardItem?: ClipboardItemFactory;
 }
 
+export const GOPASTE_CLIPBOARD_MEDIA_PREFIX = "gopaste-media:";
+
 function browserEnvironment(): ClipboardEnvironment {
   return {
     clipboard: navigator.clipboard,
@@ -51,10 +53,24 @@ function clipboardFailure(cause?: unknown): ApplicationError {
   );
 }
 
+function clipboardPayload(mimeType: string, blob: Blob, mediaId?: string): Record<string, Blob> {
+  const payload: Record<string, Blob> = { [mimeType]: blob };
+  if (mediaId) {
+    payload["text/plain"] = new Blob([`${GOPASTE_CLIPBOARD_MEDIA_PREFIX}${mediaId}`], {
+      type: "text/plain",
+    });
+  }
+  return payload;
+}
+
 export class BrowserClipboardWriter implements ClipboardWriter {
   constructor(private readonly getEnvironment: () => ClipboardEnvironment = browserEnvironment) {}
 
-  async writeImage(blob: Blob, sourceUrl?: string): Promise<ClipboardWriteResult> {
+  async writeImage(
+    blob: Blob,
+    sourceUrl?: string,
+    mediaId?: string,
+  ): Promise<ClipboardWriteResult> {
     const environment = this.getEnvironment();
     const mimeType = supportedBlobMimeType(blob);
     let binaryFailure: unknown;
@@ -66,7 +82,22 @@ export class BrowserClipboardWriter implements ClipboardWriter {
       (environment.ClipboardItem.supports?.(mimeType) ?? true)
     ) {
       try {
-        const item = new environment.ClipboardItem({ [mimeType]: blob });
+        const item = new environment.ClipboardItem(clipboardPayload(mimeType, blob, mediaId));
+        await environment.clipboard.write([item]);
+        return { method: "binary", mimeType };
+      } catch (error) {
+        binaryFailure = error;
+      }
+    }
+
+    // Chromium exposes GIF, JPEG, and WebP clipboard writes as web custom formats rather than
+    // native system-image formats. This keeps GoPaste's original bytes on the clipboard instead
+    // of degrading the action into a URL copy.
+    if (mimeType && environment.clipboard?.write && environment.ClipboardItem) {
+      try {
+        const item = new environment.ClipboardItem(
+          clipboardPayload(`web ${mimeType}`, blob, mediaId),
+        );
         await environment.clipboard.write([item]);
         return { method: "binary", mimeType };
       } catch (error) {

@@ -12,7 +12,7 @@ Open the GoPaste toolbar popup. Search titles and tags, choose a tag/category fi
 
 ## Share Media
 
-Choose **Copy** to attempt a binary image copy. If Chrome or the image type does not support that operation, GoPaste copies the original URL when available and reports the fallback. To attach a saved image or GIF in Messenger, first open the Messenger conversation in another Chrome tab, then open GoPaste. Keep holding **Drag to chat** (or **Drag file** in the dashboard), move it over the Messenger composer, then release. GoPaste recognizes its own drop and supplies the stored binary to Messenger’s attachment input; the original URL remains a compatibility fallback for non-Messenger targets.
+To paste a saved image or GIF into Messenger, open the Messenger conversation first, then open GoPaste and click the item. Return to Messenger, focus the composer, and press <kbd>⌘V</kbd> (or <kbd>Ctrl</kbd> + <kbd>V</kbd>). GoPaste converts the paste into the stored image/GIF file before Messenger handles it. The item can also be dragged directly over the Messenger composer and released. GoPaste never substitutes a source URL for the click-to-copy action.
 
 ## Back Up or Restore
 

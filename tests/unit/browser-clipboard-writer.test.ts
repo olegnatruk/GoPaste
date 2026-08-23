@@ -1,6 +1,7 @@
 import { ApplicationError } from "../../src/core/domain/errors";
 import {
   BrowserClipboardWriter,
+  GOPASTE_CLIPBOARD_MEDIA_PREFIX,
   portableSourceUrl,
   type ClipboardEnvironment,
 } from "../../src/infrastructure/clipboard/browser-clipboard-writer";
@@ -33,7 +34,22 @@ describe("BrowserClipboardWriter", () => {
     expect(writeText).not.toHaveBeenCalled();
   });
 
-  it("copies the original URL when the MIME type is unsupported by ClipboardItem", async () => {
+  it("includes a private media marker when the caller supplies an item ID", async () => {
+    const write = vi.fn().mockResolvedValue(undefined);
+    const environment: ClipboardEnvironment = {
+      clipboard: { write },
+      ClipboardItem: FakeClipboardItem as unknown as typeof ClipboardItem,
+    };
+
+    await new BrowserClipboardWriter(() => environment).writeImage(png, undefined, "saved-item");
+
+    const item = write.mock.calls[0]?.[0][0] as FakeClipboardItem;
+    const marker = item.items["text/plain"];
+    expect(marker).toMatchObject({ type: "text/plain" });
+    expect(marker?.size).toBe(`${GOPASTE_CLIPBOARD_MEDIA_PREFIX}saved-item`.length);
+  });
+
+  it("writes the original bytes as a Chrome web image format when the native type is unavailable", async () => {
     FakeClipboardItem.supported = false;
     const write = vi.fn();
     const writeText = vi.fn().mockResolvedValue(undefined);
@@ -42,17 +58,16 @@ describe("BrowserClipboardWriter", () => {
       ClipboardItem: FakeClipboardItem as unknown as typeof ClipboardItem,
     };
 
-    await expect(
-      new BrowserClipboardWriter(() => environment).writeImage(
-        new Blob(["gif"], { type: "image/gif" }),
-        " https://example.test/reaction.gif ",
-      ),
-    ).resolves.toEqual({
-      method: "url",
-      url: "https://example.test/reaction.gif",
+    const gif = new Blob(["gif"], { type: "image/gif" });
+    await expect(new BrowserClipboardWriter(() => environment).writeImage(gif)).resolves.toEqual({
+      method: "binary",
+      mimeType: "image/gif",
     });
-    expect(write).not.toHaveBeenCalled();
-    expect(writeText).toHaveBeenCalledWith("https://example.test/reaction.gif");
+    expect(write).toHaveBeenCalledOnce();
+    expect(write).toHaveBeenCalledWith([
+      expect.objectContaining({ items: { "web image/gif": gif } }),
+    ]);
+    expect(writeText).not.toHaveBeenCalled();
     FakeClipboardItem.supported = true;
   });
 

@@ -1,5 +1,6 @@
 const MESSENGER_MEDIA_DRAG_TYPE = "application/x-gopaste-media";
 const MESSENGER_ATTACHMENT_MESSAGE = "messenger/attachment";
+const MESSENGER_MEDIA_CLIPBOARD_PREFIX = "gopaste-media:";
 
 /** Installs a drop bridge in every open Messenger conversation tab. */
 export async function installMessengerDropBridge(): Promise<void> {
@@ -30,6 +31,7 @@ export async function installMessengerDropBridge(): Promise<void> {
 function installDropListener() {
   const markerType = "application/x-gopaste-media";
   const messageType = "messenger/attachment";
+  const clipboardPrefix = "gopaste-media:";
   const installationKey = "__gopasteMessengerDropBridgeV1";
   const host = window as Window & { [installationKey]?: boolean };
   if (host[installationKey]) return;
@@ -88,6 +90,38 @@ function installDropListener() {
     }
   }
 
+  function markerFromClipboard(value: string): string | undefined {
+    if (!value.startsWith(clipboardPrefix)) return undefined;
+    const mediaId = value.slice(clipboardPrefix.length).trim();
+    return mediaId || undefined;
+  }
+
+  async function attachMedia(mediaId: string) {
+    toast("Attaching image…");
+    const response = await chrome.runtime.sendMessage({ type: messageType, mediaId });
+    const payload = response as {
+      ok?: boolean;
+      attachment?: { base64: string; filename: string; mimeType: string };
+    };
+    if (!payload.ok || !payload.attachment) throw new Error("Image could not be loaded.");
+
+    const input = attachmentInput();
+    if (!input) throw new Error("Messenger's attachment input was not found.");
+    const file = new File(
+      [bytesFromBase64(payload.attachment.base64)],
+      payload.attachment.filename,
+      { type: payload.attachment.mimeType },
+    );
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    const filesSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "files")?.set;
+    if (!filesSetter) throw new Error("This browser cannot attach the image here.");
+    filesSetter.call(input, transfer.files);
+    input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+    toast("Image attached to Messenger.");
+  }
+
   document.addEventListener(
     "drop",
     (event) => {
@@ -97,39 +131,23 @@ function installDropListener() {
       if (!mediaId) return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      toast("Attaching image…");
+      void attachMedia(mediaId).catch((error: unknown) => {
+        toast(error instanceof Error ? error.message : "Image could not be attached.", true);
+      });
+    },
+    true,
+  );
 
-      void chrome.runtime
-        .sendMessage({ type: messageType, mediaId })
-        .then((response: unknown) => {
-          const payload = response as {
-            ok?: boolean;
-            attachment?: { base64: string; filename: string; mimeType: string };
-          };
-          if (!payload.ok || !payload.attachment) throw new Error("Image could not be loaded.");
-
-          const input = attachmentInput();
-          if (!input) throw new Error("Messenger's attachment input was not found.");
-          const file = new File(
-            [bytesFromBase64(payload.attachment.base64)],
-            payload.attachment.filename,
-            { type: payload.attachment.mimeType },
-          );
-          const transfer = new DataTransfer();
-          transfer.items.add(file);
-          const filesSetter = Object.getOwnPropertyDescriptor(
-            HTMLInputElement.prototype,
-            "files",
-          )?.set;
-          if (!filesSetter) throw new Error("This browser cannot attach the image here.");
-          filesSetter.call(input, transfer.files);
-          input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
-          input.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
-          toast("Image attached to Messenger.");
-        })
-        .catch((error: unknown) => {
-          toast(error instanceof Error ? error.message : "Image could not be attached.", true);
-        });
+  document.addEventListener(
+    "paste",
+    (event) => {
+      const mediaId = markerFromClipboard(event.clipboardData?.getData("text/plain") ?? "");
+      if (!mediaId) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      void attachMedia(mediaId).catch((error: unknown) => {
+        toast(error instanceof Error ? error.message : "Image could not be attached.", true);
+      });
     },
     true,
   );
@@ -138,4 +156,5 @@ function installDropListener() {
 export const messengerDropBridgeContracts = {
   markerType: MESSENGER_MEDIA_DRAG_TYPE,
   messageType: MESSENGER_ATTACHMENT_MESSAGE,
+  clipboardPrefix: MESSENGER_MEDIA_CLIPBOARD_PREFIX,
 };

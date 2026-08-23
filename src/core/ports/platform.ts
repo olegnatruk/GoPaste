@@ -30,7 +30,7 @@ export type ClipboardWriteResult =
   { method: "binary"; mimeType: SupportedMimeType } | { method: "url"; url: string };
 
 export interface ClipboardWriter {
-  writeImage(blob: Blob, sourceUrl?: string): Promise<ClipboardWriteResult>;
+  writeImage(blob: Blob, sourceUrl?: string, mediaId?: string): Promise<ClipboardWriteResult>;
 }
 
 export interface DownloadWriter {

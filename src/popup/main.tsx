@@ -4,7 +4,6 @@ import { createRoot } from "react-dom/client";
 import "../shared/styles.css";
 import { PopupShell } from "./PopupShell";
 import { loadCaptureStatus, popupLibrary, subscribeToLibraryChanges } from "./runtime";
-import { MediaShareActions } from "./sharing/MediaShareActions";
 import { IndexedDbDashboardRepository } from "../infrastructure/indexeddb/dashboard-repository";
 import { installMessengerDropBridge } from "./messenger-drop-bridge";
 import "./popup.css";
@@ -23,14 +22,8 @@ createRoot(rootElement).render(
       library={popupLibrary}
       loadCaptureStatus={loadCaptureStatus}
       subscribeToLibraryChanges={subscribeToLibraryChanges}
-      renderShareActions={(item) => (
-        <MediaShareActions
-          item={item}
-          onUsage={async (action) => {
-            await dashboardRepository.recordUsage(item.id, action);
-          }}
-        />
-      )}
+      onCopyUsage={(item) => void dashboardRepository.recordUsage(item.id, "copy")}
+      onDragUsage={(item) => void dashboardRepository.recordUsage(item.id, "drag")}
       onOpenDashboard={() =>
         void chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html") })
       }

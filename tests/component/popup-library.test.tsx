@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PopupShell, type PopupLibrary } from "../../src/popup/PopupShell";
@@ -7,8 +7,6 @@ import { createMediaRecord } from "../helpers/media-record";
 function createLibrary(overrides: Partial<PopupLibrary> = {}): PopupLibrary {
   return {
     list: vi.fn().mockResolvedValue({ items: [] }),
-    updateMetadata: vi.fn(),
-    delete: vi.fn(),
     ...overrides,
   };
 }
@@ -75,51 +73,55 @@ describe("PopupShell", () => {
     );
   });
 
-  it("normalizes metadata edits and updates the rendered item", async () => {
-    const item = createMediaRecord({ id: "edit-me", title: "Old title", tags: ["Old"] });
-    const updated = { ...item, title: "New title", tags: ["Funny", "Reaction"] };
-    const library = createLibrary({
-      list: vi.fn().mockResolvedValue({ items: [item] }),
-      updateMetadata: vi.fn().mockResolvedValue(updated),
-    });
-    render(<PopupShell library={library} />);
-
-    const card = await screen.findByRole("article", { name: "Old title" });
-    fireEvent.click(within(card).getByRole("button", { name: "Edit" }));
-    fireEvent.change(within(card).getByRole("textbox", { name: "Title" }), {
-      target: { value: "New title" },
-    });
-    fireEvent.change(within(card).getByRole("textbox", { name: "Tags" }), {
-      target: { value: " Funny, funny, Reaction,  " },
-    });
-    fireEvent.click(within(card).getByRole("button", { name: "Save" }));
-
-    await waitFor(() =>
-      expect(library.updateMetadata).toHaveBeenCalledWith("edit-me", {
-        title: "New title",
-        tags: ["Funny", "Reaction"],
-      }),
+  it("uses the image itself as the clean click-and-drag surface", async () => {
+    const item = createMediaRecord({ id: "drag-me", title: "Big Laugh" });
+    const onDragUsage = vi.fn();
+    render(
+      <PopupShell
+        library={createLibrary({ list: vi.fn().mockResolvedValue({ items: [item] }) })}
+        onDragUsage={onDragUsage}
+      />,
     );
-    expect(await screen.findByText("New title")).toBeInTheDocument();
+
+    const image = await screen.findByRole("button", {
+      name: "Copy Big Laugh to clipboard; drag to Messenger",
+    });
+    const setData = vi.fn();
+    const add = vi.fn();
+    fireEvent.dragStart(image, {
+      dataTransfer: { setData, items: { add }, effectAllowed: "uninitialized" },
+    });
+
+    expect(add).toHaveBeenCalledOnce();
+    expect(onDragUsage).toHaveBeenCalledWith(item);
+    expect(screen.queryByText("Drag to chat")).not.toBeInTheDocument();
+    expect(screen.queryByText("Edit")).not.toBeInTheDocument();
+    expect(screen.queryByText("Delete")).not.toBeInTheDocument();
   });
 
-  it("requires confirmation before deletion and announces success", async () => {
-    const item = createMediaRecord({ id: "delete-me", title: "Delete me" });
-    const confirmDelete = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true);
-    const library = createLibrary({
-      list: vi.fn().mockResolvedValue({ items: [item] }),
-      delete: vi.fn().mockResolvedValue(true),
-    });
-    render(<PopupShell library={library} confirmDelete={confirmDelete} />);
+  it("copies a thumbnail as binary media without supplying a source URL", async () => {
+    const item = createMediaRecord({ id: "copy-me", title: "Copy me" });
+    const writeImage = vi.fn().mockResolvedValue({ method: "binary", mimeType: "image/gif" });
+    const onCopyUsage = vi.fn();
+    render(
+      <PopupShell
+        library={createLibrary({ list: vi.fn().mockResolvedValue({ items: [item] }) })}
+        clipboardWriter={{ writeImage }}
+        onCopyUsage={onCopyUsage}
+      />,
+    );
 
-    const deleteButton = await screen.findByRole("button", { name: "Delete" });
-    fireEvent.click(deleteButton);
-    expect(library.delete).not.toHaveBeenCalled();
-    fireEvent.click(deleteButton);
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Copy Copy me to clipboard; drag to Messenger",
+      }),
+    );
 
-    await waitFor(() => expect(library.delete).toHaveBeenCalledWith("delete-me"));
-    expect(screen.queryByText("Delete me")).not.toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("Image deleted.");
+    await waitFor(() => expect(writeImage).toHaveBeenCalledWith(item.blob, undefined, item.id));
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Image copied. Paste in Messenger to attach it.",
+    );
+    expect(onCopyUsage).toHaveBeenCalledWith(item);
   });
 
   it("loads pages incrementally and cleans up generated URLs and subscriptions", async () => {
@@ -132,15 +134,10 @@ describe("PopupShell", () => {
     const unsubscribe = vi.fn();
     const subscribe = vi.fn(() => unsubscribe);
     const view = render(
-      <PopupShell
-        library={createLibrary({ list })}
-        subscribeToLibraryChanges={subscribe}
-        renderShareActions={(item) => <button type="button">Share {item.title}</button>}
-      />,
+      <PopupShell library={createLibrary({ list })} subscribeToLibraryChanges={subscribe} />,
     );
 
     expect(await screen.findByText("Newest")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Share Newest" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Load more" }));
     expect(await screen.findByText("Older")).toBeInTheDocument();
     expect(list).toHaveBeenLastCalledWith({ limit: 24, cursor: "first" });
