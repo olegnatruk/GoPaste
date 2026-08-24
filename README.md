@@ -1,15 +1,18 @@
+<img width="1470" height="836" alt="image" src="https://github.com/user-attachments/assets/58002983-d53f-4d9f-9b30-49362d115ff0" />
+
+
 # GoPaste
 
-GoPaste is a local-first Chrome extension for saving images and GIFs from the web, organizing them with titles and categories, and quickly sharing or backing up the collection.
+GoPaste is a local-first Chrome extension for saving images and GIFs from the web, organizing them with titles and tags, and quickly sharing or backing up the collection.
 
 ## Features
 
 - Save an image from Chrome's right-click context menu.
 - Store the fetched binary locally in IndexedDB.
-- Search, filter, rename, copy, drag, and delete library items.
+- Search, filter, tag, rename, copy, drag, and delete library items.
 - Export and restore a versioned ZIP archive.
-- Open a full local dashboard for overview, advanced filtering, grid/list browsing, favorites, bulk edits, categories, insights, maintenance, backup, and preferences.
-- Export the full library or a selected category and restore versioned ZIP archives.
+- Open a full local dashboard for overview, advanced filtering, grid/list browsing, favorites, bulk edits, categories/tags, insights, maintenance, backup, and preferences.
+- Export the full library or a selected tag and restore versioned ZIP archives.
 - Review device-local storage and usage summaries without telemetry or cloud services.
 
 ## Status
