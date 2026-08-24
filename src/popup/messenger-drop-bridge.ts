@@ -32,10 +32,10 @@ function installDropListener() {
   const markerType = "application/x-gopaste-media";
   const messageType = "messenger/attachment";
   const clipboardPrefix = "gopaste-media:";
-  const installationKey = "__gopasteMessengerDropBridgeV1";
-  const host = window as Window & { [installationKey]?: boolean };
-  if (host[installationKey]) return;
-  host[installationKey] = true;
+  const installationKey = "__gopasteMessengerDropBridge";
+  const host = window as Window & { [installationKey]?: (() => void) | boolean };
+  const existingCleanup = host[installationKey];
+  if (typeof existingCleanup === "function") existingCleanup();
 
   function toast(message: string, isError = false) {
     const existing = document.getElementById("gopaste-messenger-drop-status");
@@ -98,7 +98,15 @@ function installDropListener() {
 
   async function attachMedia(mediaId: string) {
     toast("Attaching image…");
-    const response = await chrome.runtime.sendMessage({ type: messageType, mediaId });
+    let response: unknown;
+    try {
+      response = await chrome.runtime.sendMessage({ type: messageType, mediaId });
+    } catch (error) {
+      if (error instanceof Error && /context invalidated/i.test(error.message)) {
+        throw new Error("GoPaste was updated. Open its popup once, then try again.");
+      }
+      throw error;
+    }
     const payload = response as {
       ok?: boolean;
       attachment?: { base64: string; filename: string; mimeType: string };
@@ -122,35 +130,37 @@ function installDropListener() {
     toast("Image attached to Messenger.");
   }
 
-  document.addEventListener(
-    "drop",
-    (event) => {
-      const mediaId =
-        event.dataTransfer?.getData(markerType) ||
-        markerFromUriList(event.dataTransfer?.getData("text/uri-list") ?? "");
-      if (!mediaId) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      void attachMedia(mediaId).catch((error: unknown) => {
-        toast(error instanceof Error ? error.message : "Image could not be attached.", true);
-      });
-    },
-    true,
-  );
+  const handleDrop = (event: DragEvent) => {
+    const mediaId =
+      event.dataTransfer?.getData(markerType) ||
+      markerFromUriList(event.dataTransfer?.getData("text/uri-list") ?? "");
+    if (!mediaId) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    void attachMedia(mediaId).catch((error: unknown) => {
+      toast(error instanceof Error ? error.message : "Image could not be attached.", true);
+    });
+  };
 
-  document.addEventListener(
-    "paste",
-    (event) => {
-      const mediaId = markerFromClipboard(event.clipboardData?.getData("text/plain") ?? "");
-      if (!mediaId) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      void attachMedia(mediaId).catch((error: unknown) => {
-        toast(error instanceof Error ? error.message : "Image could not be attached.", true);
-      });
-    },
-    true,
-  );
+  const handlePaste = (event: ClipboardEvent) => {
+    const mediaId = markerFromClipboard(event.clipboardData?.getData("text/plain") ?? "");
+    if (!mediaId) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    void attachMedia(mediaId).catch((error: unknown) => {
+      toast(error instanceof Error ? error.message : "Image could not be attached.", true);
+    });
+  };
+
+  // Window capture runs before legacy document listeners left behind by an extension reload.
+  window.addEventListener("drop", handleDrop, true);
+  window.addEventListener("paste", handlePaste, true);
+  const cleanup = () => {
+    window.removeEventListener("drop", handleDrop, true);
+    window.removeEventListener("paste", handlePaste, true);
+    if (host[installationKey] === cleanup) delete host[installationKey];
+  };
+  host[installationKey] = cleanup;
 }
 
 export const messengerDropBridgeContracts = {

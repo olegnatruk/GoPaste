@@ -66,7 +66,9 @@ describe("PopupShell", () => {
     });
     render(<PopupShell library={library} />);
 
-    expect(await screen.findByText("Big Laugh")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: "Copy Big Laugh to clipboard" }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
     fireEvent.change(await screen.findByRole("combobox", { name: "Category" }), {
       target: { value: "funny-category" },
@@ -86,11 +88,11 @@ describe("PopupShell", () => {
     render(<PopupShell library={createLibrary()} loadCaptureStatus={loadCaptureStatus} />);
 
     await waitFor(() => expect(loadCaptureStatus).toHaveBeenCalledOnce());
-    expect(screen.queryByText("Image saved to your library.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Image/GIF saved to GoPaste.")).not.toBeInTheDocument();
   });
 
   it("uses the image itself as the clean click-and-drag surface", async () => {
-    const item = createMediaRecord({ id: "drag-me", title: "Big Laugh" });
+    const item = createMediaRecord({ id: "drag-me", title: "Big Laugh", tags: ["Funny"] });
     const onDragUsage = vi.fn();
     render(
       <PopupShell
@@ -100,7 +102,7 @@ describe("PopupShell", () => {
     );
 
     const image = await screen.findByRole("button", {
-      name: "Copy Big Laugh to clipboard; drag to Messenger",
+      name: "Copy Big Laugh to clipboard",
     });
     const setData = vi.fn();
     const add = vi.fn();
@@ -113,6 +115,8 @@ describe("PopupShell", () => {
     expect(screen.queryByText("Drag to chat")).not.toBeInTheDocument();
     expect(screen.queryByText("Edit")).not.toBeInTheDocument();
     expect(screen.queryByText("Delete")).not.toBeInTheDocument();
+    expect(screen.queryByText("Big Laugh")).not.toBeInTheDocument();
+    expect(screen.queryByText("Funny")).not.toBeInTheDocument();
   });
 
   it("copies a thumbnail as binary media without supplying a source URL", async () => {
@@ -129,14 +133,15 @@ describe("PopupShell", () => {
 
     fireEvent.click(
       await screen.findByRole("button", {
-        name: "Copy Copy me to clipboard; drag to Messenger",
+        name: "Copy Copy me to clipboard",
       }),
     );
 
     await waitFor(() => expect(writeImage).toHaveBeenCalledWith(item.blob, undefined, item.id));
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "Image copied. Paste in Messenger to attach it.",
-    );
+    expect(await screen.findByTestId("copy-confirmation")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Image copied. Paste in Messenger to attach it."),
+    ).not.toBeInTheDocument();
     expect(onCopyUsage).toHaveBeenCalledWith(item);
   });
 
@@ -153,9 +158,13 @@ describe("PopupShell", () => {
       <PopupShell library={createLibrary({ list })} subscribeToLibraryChanges={subscribe} />,
     );
 
-    expect(await screen.findByText("Newest")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: "Copy Newest to clipboard" }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Load more" }));
-    expect(await screen.findByText("Older")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: "Copy Older to clipboard" }),
+    ).toBeInTheDocument();
     expect(list).toHaveBeenLastCalledWith({ limit: 24, cursor: "first" });
 
     view.unmount();

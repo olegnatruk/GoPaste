@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 
 import type { DashboardCategory, DashboardMediaQuery } from "../core/domain/dashboard";
 import type { MediaRecord } from "../core/domain/media";
@@ -57,26 +57,31 @@ function useObjectUrl(blob: Blob): string | undefined {
 
 interface MediaCardProps {
   item: MediaRecord;
+  copied: boolean;
+  copyConfirmationKey?: number;
   onCopy: (item: MediaRecord) => void;
   onDragStart: (event: DragEvent<HTMLImageElement>, item: MediaRecord) => void;
 }
 
-function MediaCard({ item, onCopy, onDragStart }: MediaCardProps) {
+function MediaCard({ item, copied, copyConfirmationKey, onCopy, onDragStart }: MediaCardProps) {
   const imageUrl = useObjectUrl(item.blob);
 
   return (
-    <article className="media-card" aria-label={item.title || "Untitled image"}>
+    <article
+      className={`media-card${copied ? " media-card--copied" : ""}`}
+      aria-label={item.title || "Untitled image"}
+    >
       <div className="media-card__preview">
         {imageUrl ? (
           <img
             src={imageUrl}
             alt={item.title || "Saved image"}
-            aria-label={`Copy ${item.title || "saved image"} to clipboard; drag to Messenger`}
+            aria-label={`Copy ${item.title || "saved image"} to clipboard`}
             draggable
             loading="lazy"
             role="button"
             tabIndex={0}
-            title="Click to copy. Drag to Messenger."
+            title="Click to copy"
             onClick={() => onCopy(item)}
             onDragStart={(event) => onDragStart(event, item)}
             onKeyDown={(event) => {
@@ -88,18 +93,17 @@ function MediaCard({ item, onCopy, onDragStart }: MediaCardProps) {
         ) : (
           <span>Loading preview…</span>
         )}
-      </div>
-      <div className="media-card__body">
-        <h2>{item.title || "Untitled"}</h2>
-        {item.tags.length ? (
-          <ul className="tag-list" aria-label="Tags">
-            {item.tags.map((tag) => (
-              <li key={tag.toLocaleLowerCase()}>{tag}</li>
-            ))}
-          </ul>
-        ) : (
-          <span className="media-card__untagged">Untagged</span>
-        )}
+        {copied ? (
+          <span
+            key={copyConfirmationKey}
+            className="media-card__copy-confirmation"
+            data-testid="copy-confirmation"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m5 12.5 4.25 4.25L19 7.5" />
+            </svg>
+          </span>
+        ) : null}
       </div>
     </article>
   );
@@ -124,6 +128,9 @@ export function PopupShell({
   const [notice, setNotice] = useState<string>();
   const [captureStatus, setCaptureStatus] = useState<CaptureStatus>();
   const [refreshToken, setRefreshToken] = useState(0);
+  const [copyConfirmation, setCopyConfirmation] = useState<{ itemId: string; key: number }>();
+  const copyConfirmationTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const copyConfirmationCounter = useRef(0);
   const defaultClipboardWriter = useMemo(() => new BrowserClipboardWriter(), []);
   const writer = clipboardWriter ?? defaultClipboardWriter;
 
@@ -189,6 +196,13 @@ export function PopupShell({
     return subscribeToLibraryChanges(() => setRefreshToken((value) => value + 1));
   }, [subscribeToLibraryChanges]);
 
+  useEffect(
+    () => () => {
+      if (copyConfirmationTimer.current) clearTimeout(copyConfirmationTimer.current);
+    },
+    [],
+  );
+
   async function loadMore() {
     if (!nextCursor) return;
     setLoadingMore(true);
@@ -220,15 +234,21 @@ export function PopupShell({
   }
 
   async function copyImage(item: MediaRecord) {
-    setNotice("Copying image…");
     try {
       const result = await writer.writeImage(item.blob, undefined, item.id);
       if (result.method !== "binary") {
         throw new Error("Binary clipboard copy was not available.");
       }
-      setNotice("Image copied. Paste in Messenger to attach it.");
+      setNotice(undefined);
+      const key = ++copyConfirmationCounter.current;
+      setCopyConfirmation({ itemId: item.id, key });
+      if (copyConfirmationTimer.current) clearTimeout(copyConfirmationTimer.current);
+      copyConfirmationTimer.current = setTimeout(() => {
+        setCopyConfirmation((current) => (current?.key === key ? undefined : current));
+      }, 1400);
       void onCopyUsage?.(item);
     } catch {
+      setCopyConfirmation(undefined);
       setNotice("Chrome could not copy this item as a binary image or GIF.");
     }
   }
@@ -328,6 +348,8 @@ export function PopupShell({
               <MediaCard
                 key={item.id}
                 item={item}
+                copied={copyConfirmation?.itemId === item.id}
+                copyConfirmationKey={copyConfirmation?.key}
                 onCopy={(target) => void copyImage(target)}
                 onDragStart={startImageDrag}
               />
