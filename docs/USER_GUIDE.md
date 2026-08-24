@@ -8,7 +8,7 @@ Right-click an image on a web page and choose **Save to GoPaste**. GoPaste fetch
 
 ## Find and Organize Media
 
-Open the GoPaste toolbar popup. Search titles and tags, choose a tag/category filter, and browse the newest items. Item controls allow copying, editing the title/tags, and deleting after confirmation.
+Open the GoPaste toolbar popup, choose a category created in the local dashboard, and browse the newest items. The category filter always reads the same local categories as the dashboard; click an image to copy it or drag it to a compatible chat. Use the dashboard for metadata and library management.
 
 ## Share Media
 
@@ -30,7 +30,8 @@ Open **Dashboard** from the GoPaste popup or extension options. The dashboard pr
 
 - Switch the library between three-density thumbnail grids and a detailed list.
 - Combine text, category/tag, date, size, source, favorite, and activity filters.
-- Select multiple items to favorite, re-tag, move, or delete with an explicit scope confirmation.
+- Select multiple items to favorite, re-tag, add to a category without removing existing categories, or delete with an explicit scope confirmation.
+- Open **Categories & Tags** to create visual category cards. Opening a category shows its included images newest first; choose **Add images** to select more saved media in newest-first order.
 - Review local usage and storage summaries, recent items, and duplicate candidates.
 - Export the whole library or selected categories/tags to ZIP files and restore compatible archives.
 - Configure local appearance, shortcuts, and the default click/copy action.

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import {
   DEFAULT_DASHBOARD_PREFERENCES,
   type DashboardCategory,
+  type DashboardMediaQuery,
   type DashboardMediaRecord,
   type DashboardPreferences,
 } from "../core/domain/dashboard";
@@ -56,6 +57,78 @@ function SectionHeader({
   );
 }
 
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M12 5v14M5 12h14"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+function CategoryMediaChoice({
+  item,
+  selected,
+  onChange,
+}: {
+  item: DashboardMediaRecord;
+  selected: boolean;
+  onChange: (selected: boolean) => void;
+}) {
+  const [previewUrl, setPreviewUrl] = useState<string>();
+
+  useEffect(() => {
+    const url = URL.createObjectURL(item.blob);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [item.blob]);
+
+  return (
+    <label className={`category-media-choice${selected ? " is-selected" : ""}`}>
+      {previewUrl ? (
+        <img src={previewUrl} alt={item.title || "Saved image"} loading="lazy" />
+      ) : null}
+      <span className="category-media-choice__selection">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={(event) => onChange(event.target.checked)}
+          aria-label={`Include ${item.title || "Untitled"}`}
+        />
+      </span>
+      <span>{item.title || "Untitled"}</span>
+      <small>{new Date(item.createdAt).toLocaleDateString()}</small>
+    </label>
+  );
+}
+
+function CategoryMediaCard({ item }: { item: DashboardMediaRecord }) {
+  const [previewUrl, setPreviewUrl] = useState<string>();
+
+  useEffect(() => {
+    const url = URL.createObjectURL(item.blob);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [item.blob]);
+
+  return (
+    <article className="category-media-card">
+      {previewUrl ? (
+        <img src={previewUrl} alt={item.title || "Saved image"} loading="lazy" />
+      ) : null}
+      <div>
+        <strong>{item.title || "Untitled"}</strong>
+        <small>{new Date(item.createdAt).toLocaleDateString()}</small>
+      </div>
+    </article>
+  );
+}
+
 function TaxonomyPanel({
   items,
   repository,
@@ -64,13 +137,39 @@ function TaxonomyPanel({
   const [categories, setCategories] = useState<DashboardCategory[]>([]);
   const [name, setName] = useState("");
   const [color, setColor] = useState("#2c6a42");
-  const [parentId, setParentId] = useState("");
-  const [tagRename, setTagRename] = useState<Record<string, string>>({});
+  const [creating, setCreating] = useState(false);
+  const [activeCategoryId, setActiveCategoryId] = useState<string>();
+  const [showPicker, setShowPicker] = useState(false);
+  const [mediaSearch, setMediaSearch] = useState("");
+  const [selectedMediaIds, setSelectedMediaIds] = useState<Set<string>>(new Set());
+  const [pickerItems, setPickerItems] = useState<DashboardMediaRecord[]>([]);
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [categoryItems, setCategoryItems] = useState<DashboardMediaRecord[]>([]);
+  const [categoryItemsLoading, setCategoryItemsLoading] = useState(false);
+  const [categoryItemsRevision, setCategoryItemsRevision] = useState(0);
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [message, setMessage] = useState("Loading local categories…");
 
   const load = useCallback(async () => {
     try {
-      setCategories(await repository.listCategories());
+      const [nextCategories, statistics] = await Promise.all([
+        repository.listCategories(),
+        repository.getStatistics(),
+      ]);
+      setCategories(nextCategories);
+      setCategoryCounts(
+        Object.fromEntries(
+          Object.entries(statistics.byCategoryId).map(([id, breakdown]) => [
+            id,
+            breakdown.itemCount,
+          ]),
+        ),
+      );
+      setActiveCategoryId((current) =>
+        current && !nextCategories.some((category) => category.id === current)
+          ? undefined
+          : current,
+      );
       setMessage("Categories are stored on this device.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Categories could not be loaded.");
@@ -79,63 +178,296 @@ function TaxonomyPanel({
 
   useEffect(() => void load(), [load]);
 
-  const tags = useMemo(() => {
-    const counts = new Map<string, { label: string; count: number }>();
-    for (const item of items) {
-      for (const tag of item.tags) {
-        const key = tag.toLocaleLowerCase();
-        const current = counts.get(key) ?? { label: tag, count: 0 };
-        current.count += 1;
-        counts.set(key, current);
-      }
+  const listAllMedia = useCallback(
+    async (query: Omit<DashboardMediaQuery, "cursor" | "limit">) => {
+      const loaded: DashboardMediaRecord[] = [];
+      const seenCursors = new Set<string>();
+      let cursor: string | undefined;
+      do {
+        const page = await repository.list({
+          limit: 100,
+          ...query,
+          ...(cursor ? { cursor } : {}),
+        });
+        loaded.push(...page.items);
+        cursor = page.nextCursor;
+      } while (cursor && !seenCursors.has(cursor) && seenCursors.add(cursor));
+      return loaded;
+    },
+    [repository],
+  );
+
+  useEffect(() => {
+    if (!activeCategoryId) {
+      setCategoryItems([]);
+      return;
     }
-    return [...counts.values()].sort((left, right) => left.label.localeCompare(right.label));
-  }, [items]);
+    let current = true;
+    setCategoryItemsLoading(true);
+    void listAllMedia({
+      categoryIds: [activeCategoryId],
+      sortBy: "createdAt",
+      sortDirection: "descending",
+    })
+      .then((nextItems) => {
+        if (current) setCategoryItems(nextItems);
+      })
+      .catch((error) => {
+        if (current) {
+          setCategoryItems([]);
+          setMessage(
+            error instanceof Error ? error.message : "Category images could not be loaded.",
+          );
+        }
+      })
+      .finally(() => {
+        if (current) setCategoryItemsLoading(false);
+      });
+    return () => {
+      current = false;
+    };
+  }, [activeCategoryId, categoryItemsRevision, listAllMedia]);
+
+  const activeCategory = categories.find((category) => category.id === activeCategoryId);
+  const categoryItemCount = activeCategory ? (categoryCounts[activeCategory.id] ?? 0) : 0;
+  const availableItems = useMemo(() => {
+    if (!activeCategory) return [];
+    const normalizedSearch = mediaSearch.trim().toLocaleLowerCase();
+    const sourceItems = pickerItems.length ? pickerItems : items;
+    return sourceItems
+      .filter((item) => !item.categoryIds.includes(activeCategory.id))
+      .filter(
+        (item) =>
+          !normalizedSearch ||
+          [item.title, ...item.tags].some((value) =>
+            value.toLocaleLowerCase().includes(normalizedSearch),
+          ),
+      )
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  }, [activeCategory, items, mediaSearch, pickerItems]);
 
   async function addCategory(event: FormEvent) {
     event.preventDefault();
     if (!name.trim()) return;
-    const now = new Date().toISOString();
-    await repository.saveCategory({
-      id: crypto.randomUUID(),
-      name: name.trim(),
-      color,
-      ...(parentId ? { parentId } : {}),
-      sortOrder: categories.length,
-      createdAt: now,
-      updatedAt: now,
-    });
-    setName("");
-    setParentId("");
-    setMessage("Category created locally.");
-    await load();
+    try {
+      const now = new Date().toISOString();
+      const category = await repository.saveCategory({
+        id: crypto.randomUUID(),
+        name: name.trim(),
+        color,
+        sortOrder: categories.length,
+        createdAt: now,
+        updatedAt: now,
+      });
+      setName("");
+      setCreating(false);
+      setActiveCategoryId(category.id);
+      setMessage("Category created locally. Add images when you are ready.");
+      await load();
+      onLibraryChanged();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Category could not be created.");
+    }
   }
 
-  async function updateCategory(category: DashboardCategory, update: Partial<DashboardCategory>) {
-    await repository.saveCategory({
-      ...category,
-      ...update,
-      updatedAt: new Date().toISOString(),
-    });
-    setMessage("Category updated.");
-    await load();
+  async function addSelectedMedia() {
+    if (!activeCategory || !selectedMediaIds.size) return;
+    try {
+      const result = await repository.batchUpdateMetadata([...selectedMediaIds], {
+        addCategoryIds: [activeCategory.id],
+      });
+      const succeeded = new Set(result.succeeded);
+      const addedItems = availableItems
+        .filter((item) => succeeded.has(item.id))
+        .map((item) => ({
+          ...item,
+          categoryIds: [...new Set([...item.categoryIds, activeCategory.id])],
+        }));
+      setPickerItems((current) =>
+        current.map((item) =>
+          succeeded.has(item.id)
+            ? { ...item, categoryIds: [...new Set([...item.categoryIds, activeCategory.id])] }
+            : item,
+        ),
+      );
+      setCategoryItems((current) =>
+        [...current, ...addedItems].sort((left, right) =>
+          right.createdAt.localeCompare(left.createdAt),
+        ),
+      );
+      setCategoryItemsRevision((current) => current + 1);
+      setCategoryCounts((current) => ({
+        ...current,
+        [activeCategory.id]: (current[activeCategory.id] ?? categoryItemCount) + succeeded.size,
+      }));
+      setSelectedMediaIds(new Set());
+      setShowPicker(false);
+      setMessage(
+        `${result.succeeded.length} ${result.succeeded.length === 1 ? "image" : "images"} added to ${activeCategory.name}.`,
+      );
+      onLibraryChanged();
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Images could not be added to this category.",
+      );
+    }
   }
 
-  async function renameTag(current: string) {
-    const next = tagRename[current]?.trim();
-    if (!next || next.toLocaleLowerCase() === current.toLocaleLowerCase()) return;
-    const ids = items
-      .filter((item) =>
-        item.tags.some((tag) => tag.toLocaleLowerCase() === current.toLocaleLowerCase()),
-      )
-      .map((item) => item.id);
-    const result = await repository.batchUpdateMetadata(ids, {
-      addTags: [next],
-      removeTags: [current],
+  function toggleMedia(id: string, selected: boolean) {
+    setSelectedMediaIds((current) => {
+      const next = new Set(current);
+      if (selected) next.add(id);
+      else next.delete(id);
+      return next;
     });
-    setMessage(`${result.succeeded.length} items updated; ${result.failures.length} failed.`);
-    setTagRename((values) => ({ ...values, [current]: "" }));
-    onLibraryChanged();
+  }
+
+  async function openPicker() {
+    const opening = !showPicker;
+    setShowPicker(opening);
+    if (!opening) return;
+
+    setPickerLoading(true);
+    try {
+      setPickerItems(await listAllMedia({ sortBy: "createdAt", sortDirection: "descending" }));
+    } catch (error) {
+      setPickerItems([]);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "All saved images could not be loaded; showing the current library page.",
+      );
+    } finally {
+      setPickerLoading(false);
+    }
+  }
+
+  if (activeCategory) {
+    return (
+      <section className="dashboard-section dashboard-tool-page">
+        <header className="dashboard-section__header category-workspace__header">
+          <button
+            className="back-link"
+            type="button"
+            onClick={() => {
+              setActiveCategoryId(undefined);
+              setShowPicker(false);
+              setSelectedMediaIds(new Set());
+            }}
+          >
+            ← All categories
+          </button>
+          <span className="section-eyebrow">Category</span>
+          <h1>{activeCategory.name}</h1>
+          <p>
+            {categoryItemCount} {categoryItemCount === 1 ? "image" : "images"} included. Add more
+            from your saved library, starting with the most recently added.
+          </p>
+        </header>
+
+        <div className="category-workspace__cards">
+          <article
+            className="category-summary-card"
+            style={{ "--category-color": activeCategory.color } as React.CSSProperties}
+          >
+            <span className="category-dot" aria-hidden="true" />
+            <strong>{activeCategory.name}</strong>
+            <small>{categoryItemCount} saved items</small>
+          </article>
+          <button
+            className="category-card category-card--add-media"
+            type="button"
+            onClick={() => void openPicker()}
+            aria-label={`Add images to ${activeCategory.name}`}
+            aria-expanded={showPicker}
+          >
+            <span className="category-card__plus">
+              <PlusIcon />
+            </span>
+            <strong>Add images</strong>
+            <small>Select from your library</small>
+          </button>
+        </div>
+
+        <section className="category-collection" aria-label={`Images in ${activeCategory.name}`}>
+          <div className="category-collection__heading">
+            <div>
+              <span className="section-eyebrow">Collection</span>
+              <h2>Images in {activeCategory.name}</h2>
+            </div>
+            <span>Newest first</span>
+          </div>
+          {categoryItemsLoading ? <p className="tool-empty">Loading category images…</p> : null}
+          {!categoryItemsLoading && categoryItems.length ? (
+            <div className="category-media-grid category-media-grid--collection">
+              {categoryItems.map((item) => (
+                <CategoryMediaCard key={item.id} item={item} />
+              ))}
+            </div>
+          ) : null}
+          {!categoryItemsLoading && !categoryItems.length ? (
+            <p className="tool-empty">
+              No images in this category yet. Use the plus card to add some.
+            </p>
+          ) : null}
+        </section>
+
+        {showPicker ? (
+          <section className="category-picker" aria-label={`Add images to ${activeCategory.name}`}>
+            <div className="category-picker__heading">
+              <div>
+                <span className="section-eyebrow">Recently added</span>
+                <h2>Select images to include</h2>
+              </div>
+              <span>{selectedMediaIds.size} selected</span>
+            </div>
+            <label className="category-picker__search">
+              <span className="visually-hidden">Filter saved images</span>
+              <input
+                type="search"
+                value={mediaSearch}
+                onChange={(event) => setMediaSearch(event.target.value)}
+                placeholder="Filter saved images"
+              />
+            </label>
+            <div className="category-media-grid">
+              {availableItems.map((item) => (
+                <CategoryMediaChoice
+                  key={item.id}
+                  item={item}
+                  selected={selectedMediaIds.has(item.id)}
+                  onChange={(selected) => toggleMedia(item.id, selected)}
+                />
+              ))}
+            </div>
+            {pickerLoading ? <p className="tool-empty">Loading all saved images…</p> : null}
+            {!availableItems.length ? (
+              <p className="tool-empty">Every matching image is already in this category.</p>
+            ) : null}
+            <div className="category-picker__actions">
+              <button
+                type="button"
+                className="button button--secondary"
+                onClick={() => setShowPicker(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="button"
+                disabled={!selectedMediaIds.size}
+                onClick={() => void addSelectedMedia()}
+              >
+                Add {selectedMediaIds.size || ""} {selectedMediaIds.size === 1 ? "image" : "images"}
+              </button>
+            </div>
+          </section>
+        ) : null}
+        <p className="tool-status" role="status">
+          {message}
+        </p>
+      </section>
+    );
   }
 
   return (
@@ -143,174 +475,85 @@ function TaxonomyPanel({
       <SectionHeader
         eyebrow="Organize"
         title="Categories & Tags"
-        description="Create a local hierarchy, recolor folders, and rename tags across your library."
+        description="Keep your reaction library in visual categories, then add saved images whenever they belong."
       />
-      <div className="tool-grid tool-grid--taxonomy">
-        <section className="tool-panel">
-          <div className="tool-panel__heading">
-            <div>
-              <span className="section-eyebrow">Folders</span>
-              <h2>Category manager</h2>
-            </div>
-            <span>{categories.length}</span>
-          </div>
-          <form className="category-create" onSubmit={(event) => void addCategory(event)}>
-            <input
-              aria-label="New category name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="New category"
-            />
-            <input
-              aria-label="Category color"
-              type="color"
-              value={color}
-              onChange={(event) => setColor(event.target.value)}
-            />
-            <select
-              aria-label="Parent category"
-              value={parentId}
-              onChange={(event) => setParentId(event.target.value)}
+      <div className="category-card-grid" aria-label="Categories">
+        {categories.map((category) => {
+          const categoryCount = categoryCounts[category.id] ?? 0;
+          return (
+            <button
+              key={category.id}
+              className="category-card"
+              type="button"
+              onClick={() => setActiveCategoryId(category.id)}
+              style={{ "--category-color": category.color } as React.CSSProperties}
             >
-              <option value="">Top level</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-            <button className="button" type="submit">
-              Create
+              <span className="category-card__swatch" aria-hidden="true" />
+              <strong>{category.name}</strong>
+              <small>
+                {categoryCount} {categoryCount === 1 ? "image" : "images"}
+              </small>
+              <span className="category-card__arrow" aria-hidden="true">
+                →
+              </span>
             </button>
-          </form>
-          <div className="taxonomy-list">
-            {categories.map((category, index) => (
-              <article
-                key={category.id}
-                style={{ "--category-color": category.color } as React.CSSProperties}
-              >
-                <span className="category-dot" aria-hidden="true" />
-                <input
-                  aria-label={`Rename ${category.name}`}
-                  value={category.name}
-                  onChange={(event) =>
-                    setCategories((values) =>
-                      values.map((value) =>
-                        value.id === category.id ? { ...value, name: event.target.value } : value,
-                      ),
-                    )
-                  }
-                  onBlur={() =>
-                    void updateCategory(category, {
-                      name:
-                        categories.find((value) => value.id === category.id)?.name ?? category.name,
-                    })
-                  }
-                />
-                <input
-                  aria-label={`Color for ${category.name}`}
-                  type="color"
-                  value={category.color}
-                  onChange={(event) => void updateCategory(category, { color: event.target.value })}
-                />
-                <select
-                  aria-label={`Parent for ${category.name}`}
-                  value={category.parentId ?? ""}
-                  onChange={(event) =>
-                    void updateCategory(category, { parentId: event.target.value || undefined })
-                  }
-                >
-                  <option value="">Top level</option>
-                  {categories
-                    .filter((value) => value.id !== category.id)
-                    .map((value) => (
-                      <option key={value.id} value={value.id}>
-                        {value.name}
-                      </option>
-                    ))}
-                </select>
-                <div className="row-actions">
-                  <button
-                    type="button"
-                    disabled={index === 0}
-                    onClick={() =>
-                      void updateCategory(category, {
-                        sortOrder: Math.max(0, category.sortOrder - 1),
-                      })
-                    }
-                    aria-label={`Move ${category.name} up`}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    disabled={index === categories.length - 1}
-                    onClick={() =>
-                      void updateCategory(category, { sortOrder: category.sortOrder + 1 })
-                    }
-                    aria-label={`Move ${category.name} down`}
-                  >
-                    ↓
-                  </button>
-                  <button
-                    type="button"
-                    className="danger-link"
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          `Delete category “${category.name}”? Media will remain saved.`,
-                        )
-                      )
-                        void repository.deleteCategory(category.id).then(load);
-                    }}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </article>
-            ))}
-            {!categories.length ? (
-              <p className="tool-empty">No categories yet. Tags continue to work without them.</p>
-            ) : null}
-          </div>
-        </section>
-        <section className="tool-panel">
-          <div className="tool-panel__heading">
-            <div>
-              <span className="section-eyebrow">Vocabulary</span>
-              <h2>Tag inventory</h2>
-            </div>
-            <span>{tags.length}</span>
-          </div>
-          <div className="tag-manager">
-            {tags.map((tag) => (
-              <form
-                key={tag.label.toLocaleLowerCase()}
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void renameTag(tag.label);
+          );
+        })}
+        {creating ? (
+          <form
+            className="category-card category-card--create"
+            onSubmit={(event) => void addCategory(event)}
+          >
+            <span className="category-card__plus" aria-hidden="true">
+              <PlusIcon />
+            </span>
+            <label>
+              <span className="visually-hidden">New category name</span>
+              <input
+                aria-label="New category name"
+                autoFocus
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Category name"
+              />
+            </label>
+            <label className="category-card__color">
+              <span className="visually-hidden">Category color</span>
+              <input
+                aria-label="Category color"
+                type="color"
+                value={color}
+                onChange={(event) => setColor(event.target.value)}
+              />
+            </label>
+            <div className="category-card__create-actions">
+              <button
+                type="button"
+                onClick={() => {
+                  setCreating(false);
+                  setName("");
                 }}
               >
-                <span>#{tag.label}</span>
-                <small>{tag.count} items</small>
-                <input
-                  aria-label={`Rename ${tag.label}`}
-                  value={tagRename[tag.label] ?? ""}
-                  onChange={(event) =>
-                    setTagRename((values) => ({ ...values, [tag.label]: event.target.value }))
-                  }
-                  placeholder="Rename to…"
-                />
-                <button type="submit" disabled={!tagRename[tag.label]?.trim()}>
-                  Rename
-                </button>
-              </form>
-            ))}
-            {!tags.length ? (
-              <p className="tool-empty">Tags appear here after you add them to a saved item.</p>
-            ) : null}
-          </div>
-        </section>
+                Cancel
+              </button>
+              <button className="button" type="submit" disabled={!name.trim()}>
+                Create
+              </button>
+            </div>
+          </form>
+        ) : (
+          <button
+            className="category-card category-card--new"
+            type="button"
+            onClick={() => setCreating(true)}
+          >
+            <span className="category-card__plus">
+              <PlusIcon />
+            </span>
+            <strong>New category</strong>
+            <small>Create a local collection</small>
+          </button>
+        )}
       </div>
       <p className="tool-status" role="status">
         {message}

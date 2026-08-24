@@ -7,6 +7,7 @@ import { createMediaRecord } from "../helpers/media-record";
 function createLibrary(overrides: Partial<PopupLibrary> = {}): PopupLibrary {
   return {
     list: vi.fn().mockResolvedValue({ items: [] }),
+    listCategories: vi.fn().mockResolvedValue([]),
     ...overrides,
   };
 }
@@ -48,29 +49,44 @@ describe("PopupShell", () => {
     ).toBeInTheDocument();
   });
 
-  it("queries title/tag search and category filters case-insensitively through the repository", async () => {
+  it("filters by dashboard category without showing a popup search field", async () => {
     const funny = createMediaRecord({ id: "funny", title: "Big Laugh", tags: ["Funny"] });
-    const library = createLibrary({ list: vi.fn().mockResolvedValue({ items: [funny] }) });
+    const library = createLibrary({
+      list: vi.fn().mockResolvedValue({ items: [funny] }),
+      listCategories: vi.fn().mockResolvedValue([
+        {
+          id: "funny-category",
+          name: "Funny",
+          color: "#2c6a42",
+          sortOrder: 0,
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+      ]),
+    });
     render(<PopupShell library={library} />);
 
     expect(await screen.findByText("Big Laugh")).toBeInTheDocument();
-    fireEvent.change(screen.getByRole("searchbox", { name: "Search library" }), {
-      target: { value: "LAUGH" },
-    });
-    await waitFor(() =>
-      expect(library.list).toHaveBeenLastCalledWith({ limit: 24, search: "LAUGH" }),
-    );
-
-    fireEvent.change(screen.getByRole("combobox", { name: "Category" }), {
-      target: { value: "Funny" },
+    expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+    fireEvent.change(await screen.findByRole("combobox", { name: "Category" }), {
+      target: { value: "funny-category" },
     });
     await waitFor(() =>
       expect(library.list).toHaveBeenLastCalledWith({
         limit: 24,
-        search: "LAUGH",
-        tags: ["Funny"],
+        categoryIds: ["funny-category"],
       }),
     );
+  });
+
+  it("does not display the saved capture confirmation", async () => {
+    const loadCaptureStatus = vi
+      .fn()
+      .mockResolvedValue({ state: "saved", updatedAt: "2026-08-21T00:00:00.000Z" });
+    render(<PopupShell library={createLibrary()} loadCaptureStatus={loadCaptureStatus} />);
+
+    await waitFor(() => expect(loadCaptureStatus).toHaveBeenCalledOnce());
+    expect(screen.queryByText("Image saved to your library.")).not.toBeInTheDocument();
   });
 
   it("uses the image itself as the clean click-and-drag surface", async () => {

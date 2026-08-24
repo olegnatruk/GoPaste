@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type DragEvent } from "react";
 
-import type { MediaPageQuery, MediaRecord } from "../core/domain/media";
-import type { MediaRepository } from "../core/ports/media-repository";
+import type { DashboardCategory, DashboardMediaQuery } from "../core/domain/dashboard";
+import type { MediaRecord } from "../core/domain/media";
 import type { ClipboardWriter } from "../core/ports/platform";
 import { BrowserClipboardWriter } from "../infrastructure/clipboard/browser-clipboard-writer";
 import { setImageFileDragData } from "../infrastructure/clipboard/portable-drag";
@@ -10,7 +10,13 @@ import type { CaptureStatus } from "../shared/messages";
 
 const PAGE_SIZE = 24;
 
-export type PopupLibrary = Pick<MediaRepository, "list">;
+export interface PopupLibrary {
+  list(query: DashboardMediaQuery): Promise<{
+    items: MediaRecord[];
+    nextCursor?: string;
+  }>;
+  listCategories(): Promise<DashboardCategory[]>;
+}
 
 export interface PopupShellProps {
   library: PopupLibrary;
@@ -27,7 +33,7 @@ function captureMessage(status: CaptureStatus): string | undefined {
     case "saving":
       return "Saving image…";
     case "saved":
-      return "Image saved to your library.";
+      return undefined;
     case "duplicate":
       return "That image is already in your library.";
     case "failed":
@@ -109,8 +115,8 @@ export function PopupShell({
   onOpenDashboard,
 }: PopupShellProps) {
   const [items, setItems] = useState<MediaRecord[]>([]);
+  const [categories, setCategories] = useState<DashboardCategory[]>([]);
   const [nextCursor, setNextCursor] = useState<string>();
-  const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -121,13 +127,12 @@ export function PopupShell({
   const defaultClipboardWriter = useMemo(() => new BrowserClipboardWriter(), []);
   const writer = clipboardWriter ?? defaultClipboardWriter;
 
-  const query = useMemo<MediaPageQuery>(
+  const query = useMemo<DashboardMediaQuery>(
     () => ({
       limit: PAGE_SIZE,
-      ...(search.trim() ? { search } : {}),
-      ...(category ? { tags: [category] } : {}),
+      ...(category ? { categoryIds: [category] } : {}),
     }),
-    [category, search],
+    [category],
   );
 
   const loadFirstPage = useCallback(async () => {
@@ -148,6 +153,22 @@ export function PopupShell({
     void loadFirstPage();
   }, [loadFirstPage, refreshToken]);
 
+  const loadCategories = useCallback(async () => {
+    try {
+      const nextCategories = await library.listCategories();
+      setCategories(nextCategories);
+      setCategory((current) =>
+        current && !nextCategories.some((item) => item.id === current) ? "" : current,
+      );
+    } catch {
+      setCategories([]);
+    }
+  }, [library]);
+
+  useEffect(() => {
+    void loadCategories();
+  }, [loadCategories, refreshToken]);
+
   useEffect(() => {
     if (!loadCaptureStatus) return;
     let active = true;
@@ -167,15 +188,6 @@ export function PopupShell({
     if (!subscribeToLibraryChanges) return;
     return subscribeToLibraryChanges(() => setRefreshToken((value) => value + 1));
   }, [subscribeToLibraryChanges]);
-
-  const categories = useMemo(() => {
-    const values = new Map<string, string>();
-    for (const item of items) {
-      for (const tag of item.tags) values.set(tag.toLocaleLowerCase(), tag);
-    }
-    if (category) values.set(category.toLocaleLowerCase(), category);
-    return [...values.values()].sort((left, right) => left.localeCompare(right));
-  }, [category, items]);
 
   async function loadMore() {
     if (!nextCursor) return;
@@ -252,27 +264,14 @@ export function PopupShell({
         </p>
       ) : null}
 
-      <div className="library-controls" role="search">
-        <label className="search-field">
-          <span className="visually-hidden">Search library</span>
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="11" cy="11" r="6.5" />
-            <path d="m16 16 4 4" />
-          </svg>
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search titles and tags"
-          />
-        </label>
+      <div className="library-controls">
         <label>
           <span className="visually-hidden">Category</span>
           <select value={category} onChange={(event) => setCategory(event.target.value)}>
             <option value="">All categories</option>
-            {categories.map((tag) => (
-              <option key={tag.toLocaleLowerCase()} value={tag}>
-                {tag}
+            {categories.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
               </option>
             ))}
           </select>
@@ -299,11 +298,11 @@ export function PopupShell({
           Loading your library…
         </p>
       ) : items.length === 0 && !error ? (
-        <section className={`library-state${search || category ? "" : " library-empty"}`}>
-          {search || category ? (
+        <section className={`library-state${category ? "" : " library-empty"}`}>
+          {category ? (
             <>
-              <h2>No matching images</h2>
-              <p>Try a different search or category.</p>
+              <h2>No images in this category</h2>
+              <p>Choose another category to browse more saved media.</p>
             </>
           ) : (
             <>

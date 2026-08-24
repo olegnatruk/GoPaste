@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <title>GoPaste</title>
+  <rect width="128" height="128" rx="30" fill="#173123"/>
+  <rect x="17" y="17" width="76" height="76" rx="19" fill="#bdf45d"/>
+  <path d="M47 40.5c0-5.8 4.7-10.5 10.5-10.5h23c5.8 0 10.5 4.7 10.5 10.5v30c0 5.8-4.7 10.5-10.5 10.5h-23c-5.8 0-10.5-4.7-10.5-10.5v-30Z" fill="#173123"/>
+  <path d="m65 48 17 11-17 11V48Z" fill="#bdf45d"/>
+  <path d="M85 51h5.5c7.5 0 13.5 6 13.5 13.5V83c0 7.5-6 13.5-13.5 13.5H65" fill="none" stroke="#bdf45d" stroke-linecap="round" stroke-width="8"/>
+  <circle cx="101" cy="29" r="8" fill="#fcfcf7"/>
+</svg>

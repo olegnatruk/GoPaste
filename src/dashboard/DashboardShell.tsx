@@ -47,6 +47,7 @@ export interface DashboardShellProps {
   initialView?: DashboardView;
   initialDensity?: DashboardDensity;
   initialDefaultAction?: DashboardDefaultAction;
+  reloadToken?: number;
   confirmDelete?: (items: readonly DashboardMediaRecord[]) => boolean;
   renderSection?: (
     section: Exclude<DashboardSection, "overview" | "library">,
@@ -641,6 +642,7 @@ export function DashboardShell({
   initialView = "grid",
   initialDensity = "comfortable",
   initialDefaultAction = "copy",
+  reloadToken = 0,
   confirmDelete = (items) =>
     window.confirm(
       `Delete ${items.length === 1 ? `“${items[0]?.title || "Untitled"}”` : `${items.length} items`}?`,
@@ -696,7 +698,7 @@ export function DashboardShell({
 
   useEffect(() => {
     void loadFirstPage();
-  }, [loadFirstPage]);
+  }, [loadFirstPage, reloadToken]);
 
   const tags = useMemo(
     () =>
@@ -1242,12 +1244,12 @@ export function DashboardShell({
                 {categories.length ? (
                   <div className="bulk-bar__tag">
                     <label>
-                      <span className="visually-hidden">Move selected items to category</span>
+                      <span className="visually-hidden">Add selected items to category</span>
                       <select
                         value={bulkCategory}
                         onChange={(event) => setBulkCategory(event.target.value)}
                       >
-                        <option value="">Move to category…</option>
+                        <option value="">Add to category…</option>
                         {categories.map((value) => (
                           <option key={value.id} value={value.id}>
                             {value.name}
@@ -1258,9 +1260,9 @@ export function DashboardShell({
                     <button
                       type="button"
                       disabled={busy || !bulkCategory}
-                      onClick={() => void bulkUpdate({ categoryIds: [bulkCategory] })}
+                      onClick={() => void bulkUpdate({ addCategoryIds: [bulkCategory] })}
                     >
-                      Move
+                      Add
                     </button>
                   </div>
                 ) : null}

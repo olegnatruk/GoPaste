@@ -11,6 +11,7 @@ import "./dashboard.css";
 import { DashboardShell, type DashboardLibraryService } from "./DashboardShell";
 import { DashboardSections } from "./DashboardSections";
 import { installMessengerDropBridge } from "../popup/messenger-drop-bridge";
+import { MESSAGE_VERSION } from "../shared/messages";
 
 interface DashboardAppProps {
   repository: DashboardRepository;
@@ -30,12 +31,22 @@ export function DashboardApp({ repository, mediaRepository }: DashboardAppProps)
       .catch(() => undefined);
   }, [repository]);
 
-  const refresh = useCallback(() => setRevision((value) => value + 1), []);
+  const refresh = useCallback(() => {
+    setRevision((value) => value + 1);
+    if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) return;
+    void chrome.runtime
+      .sendMessage({
+        version: MESSAGE_VERSION,
+        type: "library/changed",
+        payload: { reason: "updated" },
+      })
+      .catch(() => undefined);
+  }, []);
 
   return (
     <DashboardShell
-      key={revision}
       service={repository}
+      reloadToken={revision}
       initialView={preferences.viewMode}
       initialDensity={preferences.gridDensity}
       initialDefaultAction={preferences.defaultAction}

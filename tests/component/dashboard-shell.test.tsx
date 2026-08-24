@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { DashboardCategory } from "../../src/core/domain/dashboard";
 import {
   DashboardShell,
   type DashboardLibraryService,
@@ -175,6 +176,45 @@ describe("DashboardShell", () => {
     expect(screen.getByRole("heading", { name: "Save your first reaction" })).toBeInTheDocument();
   });
 
+  it("adds a bulk category without replacing an image's existing categories", async () => {
+    const categories = [
+      {
+        id: "reaction",
+        name: "Reaction",
+        color: "#2c6a42",
+        sortOrder: 0,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+      {
+        id: "favorites",
+        name: "Favorites",
+        color: "#bdf45d",
+        sortOrder: 1,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ] satisfies DashboardCategory[];
+    const service = createService(
+      [dashboardRecord({ id: "one", title: "One", categoryIds: ["reaction"] })],
+      { listCategories: vi.fn().mockResolvedValue(categories) },
+    );
+    render(<DashboardShell service={service} initialSection="library" />);
+
+    expect(await screen.findByText("One")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select visible" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Add selected items to category" }), {
+      target: { value: "favorites" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    await waitFor(() =>
+      expect(service.batchUpdateMetadata).toHaveBeenCalledWith(["one"], {
+        addCategoryIds: ["favorites"],
+      }),
+    );
+  });
+
   it("edits an item in the drawer and releases generated preview URLs", async () => {
     const item = dashboardRecord({ id: "edit", title: "Before", tags: ["Old"] });
     const service = createService([item]);
@@ -234,5 +274,31 @@ describe("DashboardShell", () => {
       target: { value: "missing" },
     });
     expect(screen.getByRole("heading", { name: "Nothing fits these filters" })).toBeInTheDocument();
+  });
+
+  it("keeps the active workspace open while a parent-triggered reload refreshes its data", async () => {
+    const service = createService([dashboardRecord({ id: "saved", title: "Saved" })]);
+    const renderSection = vi.fn(() => <p>Category workspace stays open</p>);
+    const view = render(
+      <DashboardShell
+        service={service}
+        initialSection="taxonomy"
+        reloadToken={0}
+        renderSection={renderSection}
+      />,
+    );
+
+    expect(await screen.findByText("Category workspace stays open")).toBeInTheDocument();
+    view.rerender(
+      <DashboardShell
+        service={service}
+        initialSection="taxonomy"
+        reloadToken={1}
+        renderSection={renderSection}
+      />,
+    );
+
+    expect(await screen.findByText("Category workspace stays open")).toBeInTheDocument();
+    await waitFor(() => expect(service.list).toHaveBeenCalledTimes(2));
   });
 });

@@ -1,8 +1,8 @@
 import { IndexedDbCaptureStatusStore } from "../infrastructure/indexeddb/capture-status-store";
-import { IndexedDbMediaRepository } from "../infrastructure/indexeddb/media-repository";
+import { IndexedDbDashboardRepository } from "../infrastructure/indexeddb/dashboard-repository";
 import { isAppMessage } from "../shared/messages";
 
-export const popupLibrary = new IndexedDbMediaRepository();
+export const popupLibrary = new IndexedDbDashboardRepository();
 const captureStatusStore = new IndexedDbCaptureStatusStore();
 
 export function loadCaptureStatus() {
