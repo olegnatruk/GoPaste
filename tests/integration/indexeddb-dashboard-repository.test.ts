@@ -131,7 +131,6 @@ describe("IndexedDbDashboardRepository", () => {
     const repository = new IndexedDbDashboardRepository();
     const batch = await repository.batchUpdateMetadata(["b", "missing", "b"], {
       favorite: true,
-      addTags: ["Pinned", "pinned"],
       addCategoryIds: ["favorites"],
     });
     expect(batch).toEqual({
@@ -145,8 +144,7 @@ describe("IndexedDbDashboardRepository", () => {
     await expect(
       repository.list({
         limit: 10,
-        search: "pin",
-        tags: ["FUNNY"],
+        search: "bravo",
         categoryIds: ["favorites"],
         sourceWebsite: "two.test",
         favorite: true,
@@ -159,7 +157,7 @@ describe("IndexedDbDashboardRepository", () => {
       items: [
         {
           id: "b",
-          tags: ["Funny", "Pinned"],
+          tags: ["Funny"],
           categoryIds: ["favorites"],
           favorite: true,
           copyCount: 1,

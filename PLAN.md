@@ -1,5 +1,7 @@
 # GoPaste Implementation Plan
 
+> **Current product decision:** Tags are retired from the app interface. Categories are the only user-facing organization method; legacy tag data remains untouched in existing local libraries and backups for compatibility.
+
 ## Local Dashboard Expansion — Approved
 
 Status: **Approved on 2026-08-23 — implementation authorized**
@@ -10,16 +12,15 @@ This expansion adds a full-page management dashboard while preserving the popup 
 
 - No accounts, cloud storage, cloud synchronization, remote backup, external analytics, or remote AI.
 - Import and export use files explicitly chosen by the user, including complete or selective ZIP archives.
-- Automatic tag suggestions use local filenames, source/page context already stored by GoPaste, and deterministic local heuristics.
 - Duplicate and near-duplicate tools suggest candidates for review; they never delete automatically.
 
 ### Dashboard information architecture
 
 1. **Overview** — pinned GIFs, recently saved, recently used, storage usage, top reactions, and actionable library-health summaries.
 2. **Library** — three-density grid and detailed list views, advanced filters, sorting, favorites, bulk selection, batch editing, and an item details drawer.
-3. **Categories & Tags** — create, rename, recolor, reorder, merge, and organize categories and nested tags.
+3. **Categories** — create, rename, recolor, reorder, merge, and organize categories.
 4. **Insights** — local copy/drag counts, most-used GIFs, category activity, and storage breakdowns based only on actual local history.
-5. **Maintenance** — exact and near-duplicate review, untagged and oversized-item queues, plus safe cleanup actions.
+5. **Maintenance** — exact and near-duplicate review plus oversized and unused-item queues with safe cleanup actions.
 6. **Backup & Settings** — full and selective ZIP import/export, theme and accent controls, keyboard shortcuts, and default click/copy formats.
 
 ### Interaction and layout direction
@@ -28,13 +29,13 @@ This expansion adds a full-page management dashboard while preserving the popup 
 - Use a persistent desktop sidebar, a global search/filter command row, and a large content workspace.
 - Keep frequent work in place: selection opens a contextual bulk-action bar; individual editing opens a non-blocking details drawer.
 - Make library state visible rather than decorative: active filters, selection count, storage impact, scan progress, and destructive scope must be explicit.
-- Support keyboard navigation, visible focus, reduced motion, non-color-only states, narrow dashboard windows, and long titles/tags.
+- Support keyboard navigation, visible focus, reduced motion, non-color-only states, narrow dashboard windows, and long titles/category names.
 
 ### Proposed implementation sequence
 
 #### Dashboard Phase A — Contracts and safe migration
 
-- Define versioned metadata for favorites, categories, nested tags, usage events/counters, preview thumbnails, and preferences.
+- Define versioned metadata for favorites, categories, usage events/counters, preview thumbnails, and preferences.
 - Add restart-safe IndexedDB migrations and repositories without rewriting existing media blobs.
 - Define bounded local statistics and duplicate-scan services.
 
@@ -44,24 +45,23 @@ Exit criteria: existing libraries migrate without data loss, new metadata has te
 
 - Add the full-page dashboard entry point and navigation.
 - Build Overview and Library surfaces with three-row-friendly grid behavior, density options, detailed list view, sorting, favorites, recent feeds, and item editing.
-- Add multi-selection plus batch delete, category move, and tag editing with confirmation and failure summaries.
+- Add multi-selection plus batch delete, category assignment, and title editing with confirmation and failure summaries.
 
 Exit criteria: users can browse and manage small and large local libraries without losing the popup's current quick-use behavior.
 
 #### Dashboard Phase C — Organization and discovery
 
-- Build the category/tag manager with rename, recolor, reorder, merge, and nested-tag operations.
-- Add combined filters for text, tag, category, date added, file size, source website, favorite state, and recent activity.
-- Add local metadata-based tag suggestions that require user acceptance.
+- Build the category manager with rename, recolor, reorder, merge, and organization operations.
+- Add combined filters for text, category, date added, file size, source website, favorite state, and recent activity.
 
-Exit criteria: combined filters are predictable, bulk taxonomy changes are transactional, and no suggestion changes metadata silently.
+Exit criteria: combined filters are predictable and bulk category changes are transactional.
 
 #### Dashboard Phase D — Insights and maintenance
 
 - Record and display local copy/drag usage counts and category trends.
 - Add live storage totals and category/type breakdowns.
 - Add exact-hash duplicate detection and bounded near-duplicate candidate scans with side-by-side review.
-- Add maintenance queues for untagged, oversized, and unused media.
+- Add maintenance queues for oversized and unused media.
 
 Exit criteria: figures reconcile with local records, scans stay responsive, and cleanup always requires explicit user choice.
 
@@ -77,7 +77,7 @@ Exit criteria: requested dashboard features are present, documented, locally tes
 ### States and scale to design for
 
 - Empty/new library, populated library, no search results, and cleared filters.
-- Hundreds to 5,000 items, long titles, many tags, missing source data, and large blobs.
+- Hundreds to 5,000 items, long titles, many categories, missing source data, and large blobs.
 - First-run migration, partial batch failure, interrupted import, scan progress/cancellation, and storage pressure.
 - No usage history yet, no duplicates found, multiple near-duplicate candidates, and destructive confirmations.
 
@@ -108,7 +108,7 @@ GoPaste will let a user:
 
 - Save an image or GIF from a page through Chrome's image context menu.
 - Keep the fetched binary and its metadata locally in IndexedDB.
-- Browse, search, filter, tag, rename, copy, drag, and delete saved items.
+- Browse, search, filter, organize in categories, rename, copy, drag, and delete saved items.
 - Export the complete library to a ZIP archive.
 - Import a compatible ZIP archive with validation, duplicate handling, progress, and partial-failure reporting.
 - View storage usage and data-management controls on an options page.
@@ -153,12 +153,12 @@ Each media record should include at least:
 - Stable generated ID.
 - Binary Blob, detected MIME type, byte size, and original file extension when known.
 - Content hash for duplicate detection.
-- Title, normalized tags/categories, and optional user notes if later approved.
+- Title, categories, and optional user notes if later approved.
 - Original source URL and page URL.
 - Creation and update timestamps.
 - Optional width and height when they can be determined safely.
 
-Indexes should support creation date, normalized title, tags/categories, and content hash. Schema upgrades must be versioned and transactional.
+Indexes should support creation date, normalized title, categories, and content hash. Schema upgrades must be versioned and transactional.
 
 ### Capture flow
 
@@ -226,7 +226,7 @@ Exit criteria: supported images can be captured from representative sites and re
 ### Phase 3 — Library and categorization
 
 - Build the popup layout, thumbnail lifecycle, loading/empty/error states, and keyboard-accessible controls.
-- Add search, category/tag filtering, editing, deletion confirmation, and efficient incremental rendering.
+- Add search, category filtering, editing, deletion confirmation, and efficient incremental rendering.
 - Ensure object URLs are revoked and large libraries do not block the UI.
 
 Exit criteria: users can reliably find and manage items; accessibility and representative large-library checks pass.

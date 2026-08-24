@@ -12,7 +12,6 @@ import {
   aggregateStorageStats,
   aggregateUsageStats,
   scoreNearDuplicateCandidates,
-  suggestMetadataTags,
 } from "../core/services/dashboard-insights";
 import type { MediaRecord } from "../core/domain/media";
 import type { MediaRepository } from "../core/ports/media-repository";
@@ -237,11 +236,7 @@ function TaxonomyPanel({
     return sourceItems
       .filter((item) => !item.categoryIds.includes(activeCategory.id))
       .filter(
-        (item) =>
-          !normalizedSearch ||
-          [item.title, ...item.tags].some((value) =>
-            value.toLocaleLowerCase().includes(normalizedSearch),
-          ),
+        (item) => !normalizedSearch || item.title.toLocaleLowerCase().includes(normalizedSearch),
       )
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   }, [activeCategory, items, mediaSearch, pickerItems]);
@@ -474,7 +469,7 @@ function TaxonomyPanel({
     <section className="dashboard-section dashboard-tool-page">
       <SectionHeader
         eyebrow="Organize"
-        title="Categories & Tags"
+        title="Categories"
         description="Keep your reaction library in visual categories, then add saved images whenever they belong."
       />
       <div className="category-card-grid" aria-label="Categories">
@@ -638,11 +633,7 @@ function InsightsPanel({ items }: { items: readonly DashboardMediaRecord[] }) {
   );
 }
 
-function MaintenancePanel({
-  items,
-  repository,
-  onLibraryChanged,
-}: Pick<DashboardSectionsProps, "items" | "repository" | "onLibraryChanged">) {
+function MaintenancePanel({ items }: Pick<DashboardSectionsProps, "items">) {
   const [scanned, setScanned] = useState(false);
   const [message, setMessage] = useState("Run a bounded local scan when you are ready.");
   const exact = useMemo(() => {
@@ -657,24 +648,12 @@ function MaintenancePanel({
         : undefined,
     [items, scanned],
   );
-  const untagged = items.filter((item) => !item.tags.length);
-
-  async function acceptSuggestions(item: DashboardMediaRecord) {
-    const suggestions = suggestMetadataTags(item)
-      .slice(0, 3)
-      .map((value) => value.tag);
-    if (!suggestions.length) return;
-    await repository.updateMediaMetadata(item.id, { tags: suggestions });
-    setMessage(`Added ${suggestions.length} suggested tags to ${item.title || "Untitled"}.`);
-    onLibraryChanged();
-  }
-
   return (
     <section className="dashboard-section dashboard-tool-page">
       <SectionHeader
         eyebrow="Library health"
         title="Maintenance"
-        description="GoPaste suggests cleanup candidates locally. You always decide what changes."
+        description="GoPaste identifies cleanup candidates locally. You always decide what changes."
       />
       <div className="maintenance-summary">
         <article>
@@ -682,8 +661,8 @@ function MaintenancePanel({
           <span>exact groups</span>
         </article>
         <article>
-          <strong>{untagged.length}</strong>
-          <span>untagged</span>
+          <strong>{items.length}</strong>
+          <span>saved items</span>
         </article>
         <article>
           <strong>{items.filter((item) => item.byteSize > 10 * 1024 ** 2).length}</strong>
@@ -711,8 +690,8 @@ function MaintenancePanel({
           </div>
           {!scanned ? (
             <p className="tool-empty">
-              The scan compares file traits, titles, dimensions, tags, and sources. It is capped to
-              keep the dashboard responsive.
+              The scan compares file traits, titles, dimensions, and sources. It is capped to keep
+              the dashboard responsive.
             </p>
           ) : near?.candidates.length ? (
             <div className="duplicate-list">
@@ -733,41 +712,6 @@ function MaintenancePanel({
           ) : (
             <p className="tool-empty">No likely near-duplicates found in the loaded library.</p>
           )}
-        </section>
-        <section className="tool-panel">
-          <div className="tool-panel__heading">
-            <div>
-              <span className="section-eyebrow">Suggestions</span>
-              <h2>Untagged items</h2>
-            </div>
-            <span>{untagged.length}</span>
-          </div>
-          <div className="suggestion-list">
-            {untagged.slice(0, 8).map((item) => {
-              const suggestions = suggestMetadataTags(item).slice(0, 3);
-              return (
-                <article key={item.id}>
-                  <div>
-                    <strong>{item.title || "Untitled"}</strong>
-                    <small>
-                      {suggestions.map((value) => `#${value.tag}`).join(" ") ||
-                        "No confident suggestion"}
-                    </small>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={!suggestions.length}
-                    onClick={() => void acceptSuggestions(item)}
-                  >
-                    Accept
-                  </button>
-                </article>
-              );
-            })}
-            {!untagged.length ? (
-              <p className="tool-empty">Every loaded item has at least one tag.</p>
-            ) : null}
-          </div>
         </section>
       </div>
       <p className="tool-status" role="status">
@@ -790,10 +734,8 @@ function BackupSettingsPanel({
   );
   const [progress, setProgress] = useState<ArchiveProgress>();
   const [message, setMessage] = useState("Backups are written only to a file you choose.");
-  const [tag, setTag] = useState("");
   const [category, setCategory] = useState("");
   const [categories, setCategories] = useState<DashboardCategory[]>([]);
-  const tags = useMemo(() => [...new Set(items.flatMap((item) => item.tags))].sort(), [items]);
 
   useEffect(() => {
     void repository.getPreferences().then(setPreferences);
@@ -871,27 +813,6 @@ function BackupSettingsPanel({
                 }}
               />
             </label>
-          </div>
-          <div className="selective-export">
-            <select
-              aria-label="Tag to export"
-              value={tag}
-              onChange={(event) => setTag(event.target.value)}
-            >
-              <option value="">Choose a tag</option>
-              {tags.map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              disabled={!tag}
-              onClick={() => void exportRecords(items.filter((item) => item.tags.includes(tag)))}
-            >
-              Export tag
-            </button>
           </div>
           <div className="selective-export">
             <select
@@ -1031,7 +952,7 @@ export function DashboardSections(props: DashboardSectionsProps) {
     case "insights":
       return <InsightsPanel items={props.items} />;
     case "maintenance":
-      return <MaintenancePanel {...props} />;
+      return <MaintenancePanel items={props.items} />;
     case "backup":
       return <BackupSettingsPanel {...props} />;
   }

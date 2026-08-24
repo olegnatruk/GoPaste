@@ -26,14 +26,14 @@ The options page displays item count and approximate stored bytes. Storage is lo
 
 ## Local Dashboard
 
-Open **Dashboard** from the GoPaste popup or extension options. The dashboard provides Overview, Library, Categories & Tags, Insights, Maintenance, and Backup & Settings sections.
+Open **Dashboard** from the GoPaste popup or extension options. The dashboard provides Overview, Library, Categories, Insights, Maintenance, and Backup & Settings sections.
 
 - Switch the library between three-density thumbnail grids and a detailed list.
-- Combine text, category/tag, date, size, source, favorite, and activity filters.
-- Select multiple items to favorite, re-tag, add to a category without removing existing categories, or delete with an explicit scope confirmation.
-- Open **Categories & Tags** to create visual category cards. Opening a category shows its included images newest first; choose **Add images** to select more saved media in newest-first order.
+- Combine text, category, date, size, source, favorite, and activity filters.
+- Select multiple items to favorite, add to a category without removing existing categories, or delete with an explicit scope confirmation.
+- Open **Categories** to create visual category cards. Opening a category shows its included images newest first; choose **Add images** to select more saved media in newest-first order.
 - Review local usage and storage summaries, recent items, and duplicate candidates.
-- Export the whole library or selected categories/tags to ZIP files and restore compatible archives.
+- Export the whole library or selected categories to ZIP files and restore compatible archives.
 - Configure local appearance, shortcuts, and the default click/copy action.
 
 All dashboard processing remains on this device. GoPaste has no account, cloud synchronization, remote backup, external analytics, or remote AI service.

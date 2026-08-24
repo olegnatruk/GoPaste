@@ -80,7 +80,7 @@ describe("DashboardShell", () => {
     for (const label of [
       "Overview",
       "Library",
-      "Categories & Tags",
+      "Categories",
       "Insights",
       "Maintenance",
       "Backup & Settings",
@@ -138,6 +138,7 @@ describe("DashboardShell", () => {
       "aria-pressed",
       "true",
     );
+    expect(screen.queryByRole("combobox", { name: "Filter by tag" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Add Big Laugh to favorites" }));
     await waitFor(() =>
@@ -149,7 +150,7 @@ describe("DashboardShell", () => {
     );
   });
 
-  it("supports selection, batch tagging, and confirmed batch deletion", async () => {
+  it("supports selection and confirmed batch deletion", async () => {
     const items = [
       dashboardRecord({ id: "one", title: "One" }),
       dashboardRecord({ id: "two", title: "Two" }),
@@ -164,21 +165,11 @@ describe("DashboardShell", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Select visible" }));
     expect(screen.getByRole("region", { name: "Bulk actions" })).toHaveTextContent("2 selected");
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Tag selected items" }), {
-      target: { value: "Keeper" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
-    await waitFor(() =>
-      expect(service.batchUpdateMetadata).toHaveBeenCalledWith(["one", "two"], {
-        addTags: ["Keeper"],
-      }),
-    );
-
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(service.batchDeleteMedia).toHaveBeenCalledWith(["one", "two"]));
     expect(confirmDelete).toHaveBeenCalledWith([
-      expect.objectContaining({ id: "one", tags: ["reaction", "Keeper"] }),
-      expect.objectContaining({ id: "two", tags: ["reaction", "Keeper"] }),
+      expect.objectContaining({ id: "one" }),
+      expect.objectContaining({ id: "two" }),
     ]);
     expect(screen.getByRole("heading", { name: "Save your first reaction" })).toBeInTheDocument();
   });
@@ -233,15 +224,12 @@ describe("DashboardShell", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "Title" }), {
       target: { value: "After" },
     });
-    fireEvent.change(screen.getByRole("textbox", { name: "Tags" }), {
-      target: { value: "New, new, Useful" },
-    });
+    expect(screen.queryByRole("textbox", { name: "Tags" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() =>
       expect(service.updateMediaMetadata).toHaveBeenCalledWith("edit", {
         title: "After",
-        tags: ["New", "Useful"],
         favorite: false,
       }),
     );

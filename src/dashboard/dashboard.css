@@ -716,25 +716,6 @@
   letter-spacing: 0.06em;
 }
 
-.dashboard-media__tags {
-  display: flex;
-  min-width: 0;
-  overflow: hidden;
-  gap: 0.25rem;
-}
-
-.dashboard-media__tags span {
-  overflow: hidden;
-  padding: 0.18rem 0.38rem;
-  border-radius: 999px;
-  color: var(--ink-soft);
-  background: var(--surface-muted);
-  font-size: 0.58rem;
-  font-weight: 680;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .dashboard-media__meta {
   display: flex;
   overflow: hidden;
@@ -875,7 +856,7 @@
 }
 
 .bulk-bar > button,
-.bulk-bar__tag button {
+.bulk-bar__category button {
   min-height: 2.25rem;
   padding: 0.42rem 0.65rem;
   border: 1px solid color-mix(in srgb, var(--surface-raised) 30%, transparent);
@@ -889,34 +870,22 @@
 }
 
 .bulk-bar > button:hover,
-.bulk-bar__tag button:hover {
+.bulk-bar__category button:hover {
   background: color-mix(in srgb, var(--surface-raised) 12%, transparent);
 }
 
-.bulk-bar__tag {
+.bulk-bar__category {
   display: flex;
   gap: 0.25rem;
 }
 
-.bulk-bar__tag input {
-  width: 8rem;
-  min-height: 2.25rem;
-  border-color: color-mix(in srgb, var(--surface-raised) 30%, transparent);
-  color: var(--surface-raised);
-  background: color-mix(in srgb, var(--surface-raised) 9%, transparent);
-}
-
-.bulk-bar__tag select {
+.bulk-bar__category select {
   width: 9.5rem;
   min-height: 2.25rem;
   padding: 0.35rem 0.5rem;
   border-color: color-mix(in srgb, var(--surface-raised) 30%, transparent);
   color: var(--surface-raised);
   background: var(--ink);
-}
-
-.bulk-bar__tag input::placeholder {
-  color: color-mix(in srgb, var(--surface-raised) 65%, transparent);
 }
 
 .bulk-bar .bulk-bar__danger {
@@ -974,16 +943,14 @@
   background: var(--surface-muted);
 }
 
-.preview-actions,
-.tag-suggestions {
+.preview-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
   margin-top: 0.55rem;
 }
 
-.preview-actions button,
-.tag-suggestions button {
+.preview-actions button {
   min-height: 2rem;
   padding: 0.35rem 0.55rem;
   border: 1px solid var(--line);
@@ -992,17 +959,6 @@
   background: transparent;
   cursor: pointer;
   font-size: 0.68rem;
-  font-weight: 720;
-}
-
-.tag-suggestions {
-  align-items: center;
-}
-
-.tag-suggestions > span {
-  flex-basis: 100%;
-  color: var(--ink-soft);
-  font-size: 0.66rem;
   font-weight: 720;
 }
 
@@ -1593,7 +1549,6 @@ button.category-card:hover {
 .category-create select,
 .taxonomy-list input,
 .taxonomy-list select,
-.tag-manager input,
 .selective-export select,
 .settings-form select {
   min-width: 0;
@@ -1613,9 +1568,7 @@ button.category-card:hover {
 }
 
 .taxonomy-list,
-.tag-manager,
-.duplicate-list,
-.suggestion-list {
+.duplicate-list {
   display: grid;
   gap: 0.5rem;
 }
@@ -1645,9 +1598,7 @@ button.category-card:hover {
 }
 
 .row-actions button,
-.tag-manager button,
-.selective-export button,
-.suggestion-list button {
+.selective-export button {
   min-height: 2.2rem;
   padding: 0.4rem 0.6rem;
   border: 1px solid var(--line);
@@ -1663,18 +1614,7 @@ button.category-card:hover {
   color: var(--danger);
 }
 
-.tag-manager form {
-  display: grid;
-  grid-template-columns: minmax(6rem, 0.8fr) auto minmax(7rem, 1fr) auto;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.55rem 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.tag-manager small,
-.duplicate-list small,
-.suggestion-list small {
+.duplicate-list small {
   color: var(--ink-soft);
   font-size: 0.68rem;
 }
@@ -1798,16 +1738,14 @@ button.category-card:hover {
   grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(11rem, 1fr);
 }
 
-.duplicate-list article,
-.suggestion-list article {
+.duplicate-list article {
   padding: 0.75rem;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--surface);
 }
 
-.duplicate-list article > div,
-.suggestion-list article {
+.duplicate-list article > div {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1824,11 +1762,6 @@ button.category-card:hover {
 .duplicate-list small {
   display: block;
   margin-top: 0.35rem;
-}
-
-.suggestion-list article > div {
-  display: grid;
-  gap: 0.2rem;
 }
 
 .backup-actions,
@@ -2120,7 +2053,6 @@ html[data-theme="dark"] {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .dashboard-media--list .dashboard-media__tags,
   .dashboard-media--list .dashboard-media__meta {
     display: none;
   }
@@ -2136,7 +2068,6 @@ html[data-theme="dark"] {
 
   .category-create,
   .taxonomy-list > article,
-  .tag-manager form,
   .settings-form,
   .insight-stats,
   .maintenance-summary {

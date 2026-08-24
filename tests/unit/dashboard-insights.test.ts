@@ -8,7 +8,6 @@ import {
   groupExactDuplicates,
   readDashboardMetadata,
   scoreNearDuplicateCandidates,
-  suggestMetadataTags,
 } from "../../src/core/services/dashboard-insights";
 import { createMediaRecord } from "../helpers/media-record";
 
@@ -86,7 +85,6 @@ describe("dashboard insights", () => {
     expect(overview).toMatchObject({
       itemCount: 2,
       favoriteCount: 1,
-      untaggedCount: 1,
       neverUsedCount: 0,
     });
     expect(overview.recentlySaved.map((record) => record.id)).toEqual(["favorite"]);
@@ -94,7 +92,7 @@ describe("dashboard insights", () => {
     expect(overview.favorites.map((record) => record.id)).toEqual(["favorite"]);
   });
 
-  it("combines source, date, size, tag, and category filters without mutating input", () => {
+  it("combines source, date, size, and category filters without mutating input", () => {
     const matching = createMediaRecord({
       id: "match",
       byteSize: 2_000,
@@ -119,34 +117,11 @@ describe("dashboard insights", () => {
       dateAddedTo: "2026-08-21T00:00:00.000Z",
       minByteSize: 1_000,
       maxByteSize: 3_000,
-      tags: ["reaction", "FUNNY"],
       categories: ["cats"],
     });
 
     expect(result.map((record) => record.id)).toEqual(["match"]);
     expect(records).toEqual([excluded, matching]);
-  });
-
-  it("suggests deterministic local metadata tags and excludes existing tags", () => {
-    const record = createMediaRecord({
-      title: "Surprised Cat Reaction",
-      tags: ["cat"],
-      sourceUrl: "https://media.example.test/gifs/surprised-cat-loop.gif",
-      pageUrl: "https://example.test/reactions/cute-animals",
-    });
-
-    const suggestions = suggestMetadataTags(record, 5);
-
-    expect(suggestions.map((suggestion) => suggestion.tag)).toEqual([
-      "surprised",
-      "reaction",
-      "loop",
-      "example",
-      "test",
-    ]);
-    expect(suggestions[0]).toMatchObject({ score: 7, sources: ["filename", "title"] });
-    expect(suggestions.some((suggestion) => suggestion.tag === "cat")).toBe(false);
-    expect(suggestMetadataTags(record, 5)).toEqual(suggestions);
   });
 
   it("groups exact hashes deterministically and reports advisory reclaimable bytes", () => {
@@ -169,7 +144,7 @@ describe("dashboard insights", () => {
     ]);
   });
 
-  it("scores explainable near-duplicate candidates deterministically and excludes exact hashes", () => {
+  it("scores near-duplicate candidates from visible metadata and excludes exact hashes", () => {
     const left = createMediaRecord({
       id: "left",
       sha256: "1".repeat(64),
@@ -212,8 +187,9 @@ describe("dashboard insights", () => {
       "right",
     ]);
     expect(result.candidates[0].reasons.map((reason) => reason.signal)).toEqual(
-      expect.arrayContaining(["title", "tags", "dimensions", "file-size"]),
+      expect.arrayContaining(["title", "dimensions", "file-size"]),
     );
+    expect(result.candidates[0].reasons.map((reason) => reason.signal)).not.toContain("tags");
   });
 
   it("enforces the explicit near-duplicate comparison bound without altering records", () => {

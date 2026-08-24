@@ -43,7 +43,6 @@ function createRepository(categories: DashboardCategory[]): DashboardRepository 
       itemCount: 0,
       totalBytes: 0,
       favoriteCount: 0,
-      untaggedCount: 0,
       unusedCount: 0,
       copyCount: 0,
       dragCount: 0,
@@ -61,7 +60,7 @@ beforeEach(() => {
   });
 });
 
-describe("Categories & Tags workspace", () => {
+describe("Categories workspace", () => {
   it("uses category cards and adds selected newest-first images from a category card", async () => {
     const category = {
       id: "funny",
@@ -84,7 +83,6 @@ describe("Categories & Tags workspace", () => {
       itemCount: 2,
       totalBytes: 12,
       favoriteCount: 0,
-      untaggedCount: 0,
       unusedCount: 2,
       copyCount: 0,
       dragCount: 0,

@@ -1,13 +1,12 @@
 import type { MediaRecord } from "../domain/media";
 
 const DEFAULT_RECENT_LIMIT = 8;
-const DEFAULT_SUGGESTION_LIMIT = 6;
 const DEFAULT_NEAR_DUPLICATE_LIMIT = 100;
 const DEFAULT_NEAR_DUPLICATE_THRESHOLD = 0.72;
 
 export const HARD_MAX_NEAR_DUPLICATE_COMPARISONS = 25_000;
 
-const TAG_STOP_WORDS = new Set([
+const TOKEN_STOP_WORDS = new Set([
   "a",
   "an",
   "and",
@@ -48,9 +47,7 @@ export interface DashboardRecordFilters {
   dateAddedTo?: string | Date;
   minByteSize?: number;
   maxByteSize?: number;
-  tags?: readonly string[];
   categories?: readonly string[];
-  matchAllTags?: boolean;
   matchAllCategories?: boolean;
 }
 
@@ -96,7 +93,6 @@ export interface DashboardUsageSummary {
 export interface DashboardOverview {
   itemCount: number;
   favoriteCount: number;
-  untaggedCount: number;
   neverUsedCount: number;
   storage: DashboardStorageSummary;
   usage: DashboardUsageSummary;
@@ -109,12 +105,6 @@ export interface DashboardOverviewOptions {
   recentLimit?: number;
 }
 
-export interface MetadataTagSuggestion {
-  tag: string;
-  score: number;
-  sources: Array<"title" | "filename" | "source-host" | "page-context">;
-}
-
 export interface ExactDuplicateGroup {
   sha256: string;
   records: MediaRecord[];
@@ -123,7 +113,7 @@ export interface ExactDuplicateGroup {
 }
 
 export type NearDuplicateSignal =
-  "title" | "tags" | "dimensions" | "file-size" | "source-host" | "mime-type";
+  "title" | "dimensions" | "file-size" | "source-host" | "mime-type";
 
 export interface NearDuplicateReason {
   signal: NearDuplicateSignal;
@@ -331,9 +321,6 @@ export function filterDashboardRecords(
       if (!requestedHosts.some((host) => hosts.has(host))) return false;
     }
 
-    if (!matchesRequestedValues(record.tags, filters.tags, filters.matchAllTags ?? true)) {
-      return false;
-    }
     const metadata = readDashboardMetadata(record);
     return matchesRequestedValues(
       metadata.categories,
@@ -478,7 +465,6 @@ export function buildDashboardOverview(
   return {
     itemCount: records.length,
     favoriteCount: favorites.length,
-    untaggedCount: records.filter((record) => record.tags.length === 0).length,
     neverUsedCount: records.length - usage.usedItemCount,
     storage: aggregateStorageStats(records),
     usage,
@@ -506,74 +492,10 @@ function tokenize(value: string): string[] {
       (token) =>
         token.length >= 2 &&
         token.length <= 32 &&
-        !TAG_STOP_WORDS.has(token) &&
+        !TOKEN_STOP_WORDS.has(token) &&
         !/^\d+$/.test(token) &&
         !/^[a-f\d]{12,}$/i.test(token),
     );
-}
-
-function addSuggestionTokens(
-  candidates: Map<
-    string,
-    { tag: string; score: number; sources: Set<MetadataTagSuggestion["sources"][number]> }
-  >,
-  value: string,
-  score: number,
-  source: MetadataTagSuggestion["sources"][number],
-): void {
-  for (const token of tokenize(value)) {
-    const existing = candidates.get(token) ?? { tag: token, score: 0, sources: new Set() };
-    if (!existing.sources.has(source)) existing.score += score;
-    existing.sources.add(source);
-    candidates.set(token, existing);
-  }
-}
-
-export function suggestMetadataTags(
-  record: MediaRecord,
-  limit = DEFAULT_SUGGESTION_LIMIT,
-): MetadataTagSuggestion[] {
-  const candidates = new Map<
-    string,
-    { tag: string; score: number; sources: Set<MetadataTagSuggestion["sources"][number]> }
-  >();
-  const existing = new Set(record.tags.map(normalizedKey));
-  addSuggestionTokens(candidates, record.title, 4, "title");
-
-  for (const [urlValue, isPage] of [
-    [record.sourceUrl, false],
-    [record.pageUrl, true],
-  ] as const) {
-    if (!urlValue) continue;
-    try {
-      const url = new URL(urlValue);
-      addSuggestionTokens(
-        candidates,
-        url.pathname.split("/").at(-1) ?? "",
-        isPage ? 1 : 3,
-        isPage ? "page-context" : "filename",
-      );
-      if (isPage) addSuggestionTokens(candidates, url.pathname, 1, "page-context");
-      addSuggestionTokens(candidates, url.hostname.replace(/^www\./, ""), 2, "source-host");
-    } catch {
-      addSuggestionTokens(
-        candidates,
-        urlValue,
-        isPage ? 1 : 3,
-        isPage ? "page-context" : "filename",
-      );
-    }
-  }
-
-  return [...candidates.values()]
-    .filter((candidate) => !existing.has(candidate.tag))
-    .map((candidate) => ({
-      tag: candidate.tag,
-      score: candidate.score,
-      sources: [...candidate.sources].sort(),
-    }))
-    .sort((left, right) => right.score - left.score || left.tag.localeCompare(right.tag))
-    .slice(0, clampInteger(limit, DEFAULT_SUGGESTION_LIMIT, 25));
 }
 
 function compareRecords(left: MediaRecord, right: MediaRecord): number {
@@ -634,19 +556,17 @@ function rounded(value: number): number {
 
 function scorePair(left: MediaRecord, right: MediaRecord): NearDuplicateCandidate {
   const title = jaccard(tokenize(left.title), tokenize(right.title));
-  const tags = jaccard(left.tags, right.tags);
   const dimensions = dimensionSimilarity(left, right);
   const fileSize = sizeSimilarity(left.byteSize, right.byteSize);
   const leftHosts = recordHosts(left);
   const sourceHost = [...recordHosts(right)].some((host) => leftHosts.has(host)) ? 1 : 0;
   const mimeType = left.mimeType === right.mimeType ? 1 : 0;
   const weighted: Array<[NearDuplicateSignal, number, number]> = [
-    ["title", title, 0.3],
-    ["tags", tags, 0.25],
-    ["dimensions", dimensions, 0.2],
-    ["file-size", fileSize, 0.15],
-    ["source-host", sourceHost, 0.05],
-    ["mime-type", mimeType, 0.05],
+    ["title", title, 0.35],
+    ["dimensions", dimensions, 0.25],
+    ["file-size", fileSize, 0.2],
+    ["source-host", sourceHost, 0.1],
+    ["mime-type", mimeType, 0.1],
   ];
   const reasons = weighted
     .filter(([, similarity]) => similarity > 0)

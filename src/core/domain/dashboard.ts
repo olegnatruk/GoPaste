@@ -20,7 +20,6 @@ export interface DashboardMediaRecord extends MediaRecord, DashboardMediaMetadat
 
 export interface DashboardMetadataUpdate {
   title?: string;
-  tags?: string[];
   categoryIds?: string[];
   favorite?: boolean;
   previewDataUrl?: string;
@@ -28,8 +27,6 @@ export interface DashboardMetadataUpdate {
 }
 
 export interface DashboardBatchMetadataUpdate extends DashboardMetadataUpdate {
-  addTags?: string[];
-  removeTags?: string[];
   addCategoryIds?: string[];
   removeCategoryIds?: string[];
 }
@@ -41,7 +38,6 @@ export interface DashboardMediaQuery {
   cursor?: string;
   limit: number;
   search?: string;
-  tags?: string[];
   categoryIds?: string[];
   createdFrom?: string;
   createdTo?: string;
@@ -136,7 +132,6 @@ export interface DashboardStatistics {
   itemCount: number;
   totalBytes: number;
   favoriteCount: number;
-  untaggedCount: number;
   unusedCount: number;
   copyCount: number;
   dragCount: number;

@@ -20,7 +20,6 @@ import type {
   DashboardViewMode,
 } from "../core/domain/dashboard";
 import type { DashboardRepository } from "../core/ports/dashboard-repository";
-import { suggestMetadataTags } from "../core/services/dashboard-insights";
 import { BrowserClipboardWriter } from "../infrastructure/clipboard/browser-clipboard-writer";
 import { setImageFileDragData } from "../infrastructure/clipboard/portable-drag";
 import { BrandMark } from "../shared/BrandMark";
@@ -58,7 +57,7 @@ export interface DashboardShellProps {
 const NAVIGATION: ReadonlyArray<{ id: DashboardSection; label: string; shortLabel: string }> = [
   { id: "overview", label: "Overview", shortLabel: "OV" },
   { id: "library", label: "Library", shortLabel: "LI" },
-  { id: "taxonomy", label: "Categories & Tags", shortLabel: "CT" },
+  { id: "taxonomy", label: "Categories", shortLabel: "CA" },
   { id: "insights", label: "Insights", shortLabel: "IN" },
   { id: "maintenance", label: "Maintenance", shortLabel: "MA" },
   { id: "backup", label: "Backup & Settings", shortLabel: "BS" },
@@ -70,8 +69,8 @@ const SECTION_COPY: Record<
 > = {
   taxonomy: {
     eyebrow: "Organize",
-    title: "Categories & Tags",
-    description: "Shape the vocabulary that keeps your reaction library easy to browse.",
+    title: "Categories",
+    description: "Organize your reaction library into visual collections that are easy to browse.",
   },
   insights: {
     eyebrow: "Understand",
@@ -106,19 +105,6 @@ function useObjectUrl(blob: Blob | undefined): string | undefined {
   return url;
 }
 
-function normalizeTags(value: string): string[] {
-  const seen = new Set<string>();
-  return value
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter((tag) => {
-      const key = tag.toLocaleLowerCase();
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-}
-
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -147,21 +133,18 @@ function applyBatchUpdate(
   item: DashboardMediaRecord,
   update: DashboardBatchMetadataUpdate,
 ): DashboardMediaRecord {
-  const { addTags, removeTags, addCategoryIds, removeCategoryIds, ...metadata } = update;
-  const tags = normalizeTags(
-    [...(update.tags ?? item.tags), ...(addTags ?? [])]
-      .filter(
-        (tag) =>
-          !(removeTags ?? []).some(
-            (removed) => removed.toLocaleLowerCase() === tag.toLocaleLowerCase(),
-          ),
-      )
-      .join(","),
-  );
+  const { addCategoryIds, removeCategoryIds } = update;
   const categoryIds = [
     ...new Set([...(update.categoryIds ?? item.categoryIds), ...(addCategoryIds ?? [])]),
   ].filter((id) => !(removeCategoryIds ?? []).includes(id));
-  return { ...item, ...metadata, tags, categoryIds };
+  return {
+    ...item,
+    ...(update.title !== undefined ? { title: update.title } : {}),
+    ...(update.favorite !== undefined ? { favorite: update.favorite } : {}),
+    ...(update.previewDataUrl !== undefined ? { previewDataUrl: update.previewDataUrl } : {}),
+    ...(update.clearPreview ? { previewDataUrl: undefined } : {}),
+    categoryIds,
+  };
 }
 
 function MediaPreview({
@@ -234,13 +217,6 @@ function MediaItem({
           <h3>{item.title || "Untitled"}</h3>
           <span>{item.extension.toUpperCase()}</span>
         </div>
-        <div className="dashboard-media__tags">
-          {item.tags.slice(0, 3).map((tag) => (
-            <span key={tag.toLocaleLowerCase()}>#{tag}</span>
-          ))}
-          {item.tags.length > 3 ? <span>+{item.tags.length - 3}</span> : null}
-          {!item.tags.length ? <span>Untagged</span> : null}
-        </div>
         <div className="dashboard-media__meta">
           <span>{formatBytes(item.byteSize)}</span>
           <span>{sourceHost(item)}</span>
@@ -285,7 +261,6 @@ interface ItemDrawerProps {
 
 function ItemDrawer({ item, categories, busy, onClose, onSave, onDelete }: ItemDrawerProps) {
   const [title, setTitle] = useState(item.title);
-  const [tags, setTags] = useState(item.tags.join(", "));
   const [favorite, setFavorite] = useState(Boolean(item.favorite));
   const [categoryIds, setCategoryIds] = useState<string[]>(item.categoryIds);
   const previewRef = useRef<HTMLImageElement>(null);
@@ -294,7 +269,6 @@ function ItemDrawer({ item, categories, busy, onClose, onSave, onDelete }: ItemD
 
   useEffect(() => {
     setTitle(item.title);
-    setTags(item.tags.join(", "));
     setFavorite(Boolean(item.favorite));
     setCategoryIds(item.categoryIds);
   }, [item]);
@@ -337,7 +311,6 @@ function ItemDrawer({ item, categories, busy, onClose, onSave, onDelete }: ItemD
     event.preventDefault();
     await onSave(item, {
       title: title.trim(),
-      tags: normalizeTags(tags),
       favorite,
       ...(categories.length || item.categoryIds.length ? { categoryIds } : {}),
     });
@@ -353,10 +326,6 @@ function ItemDrawer({ item, categories, busy, onClose, onSave, onDelete }: ItemD
     canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height);
     await onSave(item, { previewDataUrl: canvas.toDataURL("image/webp", 0.82) });
   }
-
-  const suggestions = suggestMetadataTags(item)
-    .filter((suggestion) => !item.tags.some((tag) => tag.toLocaleLowerCase() === suggestion.tag))
-    .slice(0, 4);
 
   return (
     <aside
@@ -403,30 +372,6 @@ function ItemDrawer({ item, categories, busy, onClose, onSave, onDelete }: ItemD
           Title
           <input value={title} onChange={(event) => setTitle(event.target.value)} />
         </label>
-        <label>
-          Tags
-          <input
-            aria-label="Tags"
-            value={tags}
-            onChange={(event) => setTags(event.target.value)}
-            placeholder="reaction, celebration"
-          />
-          <small>Separate tags with commas.</small>
-        </label>
-        {suggestions.length ? (
-          <div className="tag-suggestions" aria-label="Local tag suggestions">
-            <span>Suggested locally</span>
-            {suggestions.map((suggestion) => (
-              <button
-                key={suggestion.tag}
-                type="button"
-                onClick={() => setTags(normalizeTags(`${tags},${suggestion.tag}`).join(", "))}
-              >
-                + #{suggestion.tag}
-              </button>
-            ))}
-          </div>
-        ) : null}
         {categories.length ? (
           <fieldset className="drawer-categories">
             <legend>Categories</legend>
@@ -660,7 +605,6 @@ export function DashboardShell({
   const [view, setView] = useState<DashboardView>(initialView);
   const [density, setDensity] = useState<DashboardDensity>(initialDensity);
   const [search, setSearch] = useState("");
-  const [tag, setTag] = useState("");
   const [format, setFormat] = useState("");
   const [source, setSource] = useState("");
   const [category, setCategory] = useState("");
@@ -670,7 +614,6 @@ export function DashboardShell({
   const [favoriteOnly, setFavoriteOnly] = useState(false);
   const [sort, setSort] = useState("newest");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  const [bulkTag, setBulkTag] = useState("");
   const [bulkCategory, setBulkCategory] = useState("");
   const [activeItem, setActiveItem] = useState<DashboardMediaRecord>();
   const [busy, setBusy] = useState(false);
@@ -700,13 +643,6 @@ export function DashboardShell({
     void loadFirstPage();
   }, [loadFirstPage, reloadToken]);
 
-  const tags = useMemo(
-    () =>
-      [...new Set(items.flatMap((item) => item.tags))].sort((left, right) =>
-        left.localeCompare(right),
-      ),
-    [items],
-  );
   const sources = useMemo(
     () => [...new Set(items.map(sourceHost))].sort((left, right) => left.localeCompare(right)),
     [items],
@@ -715,10 +651,7 @@ export function DashboardShell({
   const visibleItems = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
     const filtered = items.filter((item) => {
-      if (query && !`${item.title} ${item.tags.join(" ")}`.toLocaleLowerCase().includes(query))
-        return false;
-      if (tag && !item.tags.some((value) => value.toLocaleLowerCase() === tag.toLocaleLowerCase()))
-        return false;
+      if (query && !item.title.toLocaleLowerCase().includes(query)) return false;
       if (format && item.extension !== format) return false;
       if (source && sourceHost(item) !== source) return false;
       if (category && !item.categoryIds.includes(category)) return false;
@@ -745,19 +678,7 @@ export function DashboardShell({
           return right.createdAt.localeCompare(left.createdAt);
       }
     });
-  }, [
-    category,
-    createdFrom,
-    createdTo,
-    favoriteOnly,
-    format,
-    items,
-    search,
-    size,
-    sort,
-    source,
-    tag,
-  ]);
+  }, [category, createdFrom, createdTo, favoriteOnly, format, items, search, size, sort, source]);
 
   const selectedItems = items.filter((item) => selectedIds.has(item.id));
   const allVisibleSelected =
@@ -824,7 +745,6 @@ export function DashboardShell({
           result.failures.length ? `; ${result.failures.length} failed` : ""
         }.`,
       );
-      setBulkTag("");
     } catch (bulkError) {
       setNotice(
         bulkError instanceof Error ? bulkError.message : "The batch update could not be completed.",
@@ -1004,19 +924,8 @@ export function DashboardShell({
                     type="search"
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search titles and tags"
+                    placeholder="Search titles"
                   />
-                </label>
-                <label>
-                  <span className="visually-hidden">Filter by tag</span>
-                  <select value={tag} onChange={(event) => setTag(event.target.value)}>
-                    <option value="">All tags</option>
-                    {tags.map((value) => (
-                      <option key={value.toLocaleLowerCase()} value={value}>
-                        {value}
-                      </option>
-                    ))}
-                  </select>
                 </label>
                 <label>
                   <span className="visually-hidden">Filter by format</span>
@@ -1169,7 +1078,6 @@ export function DashboardShell({
                     type="button"
                     onClick={() => {
                       setSearch("");
-                      setTag("");
                       setFormat("");
                       setSource("");
                       setCategory("");
@@ -1225,25 +1133,8 @@ export function DashboardShell({
                   >
                     ★ Favorite
                   </button>
-                  <div className="bulk-bar__tag">
-                    <label>
-                      <span className="visually-hidden">Tag selected items</span>
-                      <input
-                        value={bulkTag}
-                        onChange={(event) => setBulkTag(event.target.value)}
-                        placeholder="Add a tag"
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      disabled={busy || !bulkTag.trim()}
-                      onClick={() => void bulkUpdate({ addTags: normalizeTags(bulkTag) })}
-                    >
-                      Apply
-                    </button>
-                  </div>
                   {categories.length ? (
-                    <div className="bulk-bar__tag">
+                    <div className="bulk-bar__category">
                       <label>
                         <span className="visually-hidden">Add selected items to category</span>
                         <select

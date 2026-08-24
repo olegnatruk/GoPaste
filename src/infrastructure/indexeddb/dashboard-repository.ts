@@ -112,15 +112,6 @@ function toStoredMedia(
   current: StoredDashboardMedia,
   update: DashboardBatchMetadataUpdate,
 ): StoredDashboardMedia {
-  let tags = update.tags ? normalizedTags(update.tags) : normalizedTags(current.tags);
-  if (update.addTags) tags = normalizedTags([...tags, ...update.addTags]);
-  if (update.removeTags) {
-    const removed = new Set(
-      normalizedTags(update.removeTags).map((tag) => tag.toLocaleLowerCase()),
-    );
-    tags = tags.filter((tag) => !removed.has(tag.toLocaleLowerCase()));
-  }
-
   let categoryIds = update.categoryIds
     ? normalizedIds(update.categoryIds)
     : normalizedIds(current.categoryIds);
@@ -135,8 +126,6 @@ function toStoredMedia(
   const updated: StoredDashboardMedia = {
     ...current,
     ...(update.title !== undefined ? { title: update.title.trim() } : {}),
-    tags,
-    normalizedTags: tags.map((tag) => tag.toLocaleLowerCase()),
     categoryIds,
     ...(update.favorite !== undefined ? { favorite: update.favorite } : {}),
     updatedAt: new Date().toISOString(),
@@ -211,16 +200,11 @@ function compareMedia(
 
 function matchesQuery(record: DashboardMediaRecord, query: DashboardMediaQuery): boolean {
   const search = query.search?.trim().toLocaleLowerCase();
-  const tags = normalizedTags(query.tags).map((tag) => tag.toLocaleLowerCase());
-  const recordTags = record.tags.map((tag) => tag.toLocaleLowerCase());
   const categories = normalizedIds(query.categoryIds);
   const website = query.sourceWebsite?.trim().toLocaleLowerCase();
   const created = timestamp(record.createdAt);
   return (
-    (!search ||
-      record.title.toLocaleLowerCase().includes(search) ||
-      recordTags.some((tag) => tag.includes(search))) &&
-    tags.every((tag) => recordTags.includes(tag)) &&
+    (!search || record.title.toLocaleLowerCase().includes(search)) &&
     categories.every((id) => record.categoryIds.includes(id)) &&
     (query.favorite === undefined || record.favorite === query.favorite) &&
     (query.minBytes === undefined || record.byteSize >= Math.max(0, query.minBytes)) &&
@@ -603,7 +587,6 @@ export class IndexedDbDashboardRepository implements DashboardRepository {
         itemCount: media.length,
         totalBytes: 0,
         favoriteCount: 0,
-        untaggedCount: 0,
         unusedCount: 0,
         copyCount: 0,
         dragCount: 0,
@@ -614,7 +597,6 @@ export class IndexedDbDashboardRepository implements DashboardRepository {
         const record = normalizeMedia(stored, usages.get(stored.id));
         statistics.totalBytes += record.byteSize;
         if (record.favorite) statistics.favoriteCount += 1;
-        if (!record.tags.length) statistics.untaggedCount += 1;
         if (!record.copyCount && !record.dragCount) statistics.unusedCount += 1;
         statistics.copyCount += record.copyCount;
         statistics.dragCount += record.dragCount;
