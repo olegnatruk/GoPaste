@@ -1,3 +1,6 @@
+<img width="1470" height="836" alt="image" src="https://github.com/user-attachments/assets/58002983-d53f-4d9f-9b30-49362d115ff0" />
+
+
 # GoPaste
 
 GoPaste is a local-first Chrome extension for saving images and GIFs from the web, organizing them with titles and tags, and quickly sharing or backing up the collection.
