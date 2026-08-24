@@ -970,340 +970,342 @@ export function DashboardShell({
           </div>
         ) : null}
 
-        {loading ? (
-          <section className="dashboard-state" role="status">
-            <span className="dashboard-state__pulse" aria-hidden="true" />
-            <h1>Loading your library</h1>
-            <p>Gathering local reactions and metadata…</p>
-          </section>
-        ) : error ? (
-          <section className="dashboard-state dashboard-state--error" role="alert">
-            <span className="section-eyebrow">Something went wrong</span>
-            <h1>The library could not be loaded.</h1>
-            <p>{error}</p>
-            <button className="button" type="button" onClick={() => void loadFirstPage()}>
-              Try again
-            </button>
-          </section>
-        ) : section === "overview" ? (
-          <Overview items={items} onOpenLibrary={() => setSection("library")} />
-        ) : section === "library" ? (
-          <section className="dashboard-section dashboard-library">
-            <SectionHeader
-              eyebrow="Browse and organize"
-              title="Library"
-              description="Find the right reaction, keep favorites close, and tidy metadata in one place."
-            />
+        <div className="dashboard-workspace" data-section={section} key={section}>
+          {loading ? (
+            <section className="dashboard-state" role="status">
+              <span className="dashboard-state__pulse" aria-hidden="true" />
+              <h1>Loading your library</h1>
+              <p>Gathering local reactions and metadata…</p>
+            </section>
+          ) : error ? (
+            <section className="dashboard-state dashboard-state--error" role="alert">
+              <span className="section-eyebrow">Something went wrong</span>
+              <h1>The library could not be loaded.</h1>
+              <p>{error}</p>
+              <button className="button" type="button" onClick={() => void loadFirstPage()}>
+                Try again
+              </button>
+            </section>
+          ) : section === "overview" ? (
+            <Overview items={items} onOpenLibrary={() => setSection("library")} />
+          ) : section === "library" ? (
+            <section className="dashboard-section dashboard-library">
+              <SectionHeader
+                eyebrow="Browse and organize"
+                title="Library"
+                description="Find the right reaction, keep favorites close, and tidy metadata in one place."
+              />
 
-            <div className="library-toolbar">
-              <label className="dashboard-search">
-                <span className="visually-hidden">Search library</span>
-                <span aria-hidden="true">⌕</span>
-                <input
-                  type="search"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search titles and tags"
-                />
-              </label>
-              <label>
-                <span className="visually-hidden">Filter by tag</span>
-                <select value={tag} onChange={(event) => setTag(event.target.value)}>
-                  <option value="">All tags</option>
-                  {tags.map((value) => (
-                    <option key={value.toLocaleLowerCase()} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span className="visually-hidden">Filter by format</span>
-                <select value={format} onChange={(event) => setFormat(event.target.value)}>
-                  <option value="">All formats</option>
-                  <option value="gif">GIF</option>
-                  <option value="png">PNG</option>
-                  <option value="jpg">JPG</option>
-                  <option value="webp">WebP</option>
-                </select>
-              </label>
-              <label>
-                <span className="visually-hidden">Filter by source</span>
-                <select value={source} onChange={(event) => setSource(event.target.value)}>
-                  <option value="">All sources</option>
-                  {sources.map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span className="visually-hidden">Filter by category</span>
-                <select value={category} onChange={(event) => setCategory(event.target.value)}>
-                  <option value="">All categories</option>
-                  {categories.map((value) => (
-                    <option key={value.id} value={value.id}>
-                      {value.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span className="visually-hidden">Filter by file size</span>
-                <select value={size} onChange={(event) => setSize(event.target.value)}>
-                  <option value="">All sizes</option>
-                  <option value="small">Under 1 MiB</option>
-                  <option value="medium">1–10 MiB</option>
-                  <option value="large">Over 10 MiB</option>
-                </select>
-              </label>
-              <label className="date-filter">
-                <span>Saved after</span>
-                <input
-                  type="date"
-                  value={createdFrom}
-                  onChange={(event) => setCreatedFrom(event.target.value)}
-                />
-              </label>
-              <label className="date-filter">
-                <span>Saved before</span>
-                <input
-                  type="date"
-                  value={createdTo}
-                  onChange={(event) => setCreatedTo(event.target.value)}
-                />
-              </label>
-              <label>
-                <span className="visually-hidden">Sort library</span>
-                <select value={sort} onChange={(event) => setSort(event.target.value)}>
-                  <option value="newest">Newest first</option>
-                  <option value="oldest">Oldest first</option>
-                  <option value="title">Title A–Z</option>
-                  <option value="size">Largest first</option>
-                  <option value="used">Most used</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="library-viewbar">
-              <div className="library-viewbar__scope">
-                <label className="check-row">
+              <div className="library-toolbar">
+                <label className="dashboard-search">
+                  <span className="visually-hidden">Search library</span>
+                  <span aria-hidden="true">⌕</span>
                   <input
-                    type="checkbox"
-                    checked={allVisibleSelected}
-                    onChange={(event) => selectVisible(event.target.checked)}
+                    type="search"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Search titles and tags"
                   />
-                  Select visible
                 </label>
-                <button
-                  className={`filter-chip${favoriteOnly ? " is-active" : ""}`}
-                  type="button"
-                  aria-pressed={favoriteOnly}
-                  onClick={() => setFavoriteOnly((value) => !value)}
-                >
-                  ★ Favorites
-                </button>
-                <span>{visibleItems.length} shown</span>
-              </div>
-              <div className="library-viewbar__display">
-                {view === "grid" ? (
-                  <fieldset className="density-switcher">
-                    <legend className="visually-hidden">Grid density</legend>
-                    {(["compact", "comfortable", "spacious"] as const).map((value) => (
-                      <button
-                        key={value}
-                        className={density === value ? "is-active" : ""}
-                        type="button"
-                        aria-label={`${value} grid density`}
-                        aria-pressed={density === value}
-                        onClick={() => setDensity(value)}
-                      >
-                        {value === "compact" ? "•••" : value === "comfortable" ? "••" : "•"}
-                      </button>
+                <label>
+                  <span className="visually-hidden">Filter by tag</span>
+                  <select value={tag} onChange={(event) => setTag(event.target.value)}>
+                    <option value="">All tags</option>
+                    {tags.map((value) => (
+                      <option key={value.toLocaleLowerCase()} value={value}>
+                        {value}
+                      </option>
                     ))}
-                  </fieldset>
-                ) : null}
-                <div className="view-switcher" role="group" aria-label="Library view">
-                  <button
-                    className={view === "grid" ? "is-active" : ""}
-                    type="button"
-                    aria-label="Grid view"
-                    aria-pressed={view === "grid"}
-                    onClick={() => setView("grid")}
-                  >
-                    Grid
-                  </button>
-                  <button
-                    className={view === "list" ? "is-active" : ""}
-                    type="button"
-                    aria-label="List view"
-                    aria-pressed={view === "list"}
-                    onClick={() => setView("list")}
-                  >
-                    List
-                  </button>
-                </div>
+                  </select>
+                </label>
+                <label>
+                  <span className="visually-hidden">Filter by format</span>
+                  <select value={format} onChange={(event) => setFormat(event.target.value)}>
+                    <option value="">All formats</option>
+                    <option value="gif">GIF</option>
+                    <option value="png">PNG</option>
+                    <option value="jpg">JPG</option>
+                    <option value="webp">WebP</option>
+                  </select>
+                </label>
+                <label>
+                  <span className="visually-hidden">Filter by source</span>
+                  <select value={source} onChange={(event) => setSource(event.target.value)}>
+                    <option value="">All sources</option>
+                    {sources.map((value) => (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span className="visually-hidden">Filter by category</span>
+                  <select value={category} onChange={(event) => setCategory(event.target.value)}>
+                    <option value="">All categories</option>
+                    {categories.map((value) => (
+                      <option key={value.id} value={value.id}>
+                        {value.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span className="visually-hidden">Filter by file size</span>
+                  <select value={size} onChange={(event) => setSize(event.target.value)}>
+                    <option value="">All sizes</option>
+                    <option value="small">Under 1 MiB</option>
+                    <option value="medium">1–10 MiB</option>
+                    <option value="large">Over 10 MiB</option>
+                  </select>
+                </label>
+                <label className="date-filter">
+                  <span>Saved after</span>
+                  <input
+                    type="date"
+                    value={createdFrom}
+                    onChange={(event) => setCreatedFrom(event.target.value)}
+                  />
+                </label>
+                <label className="date-filter">
+                  <span>Saved before</span>
+                  <input
+                    type="date"
+                    value={createdTo}
+                    onChange={(event) => setCreatedTo(event.target.value)}
+                  />
+                </label>
+                <label>
+                  <span className="visually-hidden">Sort library</span>
+                  <select value={sort} onChange={(event) => setSort(event.target.value)}>
+                    <option value="newest">Newest first</option>
+                    <option value="oldest">Oldest first</option>
+                    <option value="title">Title A–Z</option>
+                    <option value="size">Largest first</option>
+                    <option value="used">Most used</option>
+                  </select>
+                </label>
               </div>
-            </div>
 
-            {!items.length ? (
-              <section className="library-empty">
-                <div className="library-empty__art" aria-hidden="true">
-                  <span />
-                  <span />
-                  <span />
-                </div>
-                <span className="section-eyebrow">A clean slate</span>
-                <h2>Save your first reaction</h2>
-                <p>Right-click an image on the web and choose “Save to GoPaste.”</p>
-              </section>
-            ) : !visibleItems.length ? (
-              <section className="library-empty">
-                <span className="section-eyebrow">No matches</span>
-                <h2>Nothing fits these filters</h2>
-                <p>Clear a filter or try a broader search.</p>
-                <button
-                  className="button button--secondary"
-                  type="button"
-                  onClick={() => {
-                    setSearch("");
-                    setTag("");
-                    setFormat("");
-                    setSource("");
-                    setCategory("");
-                    setSize("");
-                    setCreatedFrom("");
-                    setCreatedTo("");
-                    setFavoriteOnly(false);
-                  }}
-                >
-                  Clear filters
-                </button>
-              </section>
-            ) : (
-              <>
-                <div className={`library-items library-items--${view} density--${density}`}>
-                  {visibleItems.map((item) => (
-                    <MediaItem
-                      key={item.id}
-                      item={item}
-                      selected={selectedIds.has(item.id)}
-                      view={view}
-                      onSelect={selectItem}
-                      onFavorite={(target) =>
-                        void updateItem(target, { favorite: !target.favorite })
-                      }
-                      onOpen={setActiveItem}
-                      defaultAction={initialDefaultAction}
-                      onUse={(target) => void performDefaultAction(target)}
-                      onDrag={dragItem}
-                    />
-                  ))}
-                </div>
-                {nextCursor ? (
-                  <button
-                    className="button button--secondary load-more"
-                    type="button"
-                    disabled={loadingMore}
-                    onClick={() => void loadMore()}
-                  >
-                    {loadingMore ? "Loading more…" : "Load more"}
-                  </button>
-                ) : null}
-              </>
-            )}
-
-            {selectedItems.length ? (
-              <div className="bulk-bar" role="region" aria-label="Bulk actions">
-                <strong>{selectedItems.length} selected</strong>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void bulkUpdate({ favorite: true })}
-                >
-                  ★ Favorite
-                </button>
-                <div className="bulk-bar__tag">
-                  <label>
-                    <span className="visually-hidden">Tag selected items</span>
+              <div className="library-viewbar">
+                <div className="library-viewbar__scope">
+                  <label className="check-row">
                     <input
-                      value={bulkTag}
-                      onChange={(event) => setBulkTag(event.target.value)}
-                      placeholder="Add a tag"
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      onChange={(event) => selectVisible(event.target.checked)}
                     />
+                    Select visible
                   </label>
                   <button
+                    className={`filter-chip${favoriteOnly ? " is-active" : ""}`}
                     type="button"
-                    disabled={busy || !bulkTag.trim()}
-                    onClick={() => void bulkUpdate({ addTags: normalizeTags(bulkTag) })}
+                    aria-pressed={favoriteOnly}
+                    onClick={() => setFavoriteOnly((value) => !value)}
                   >
-                    Apply
+                    ★ Favorites
                   </button>
+                  <span>{visibleItems.length} shown</span>
                 </div>
-                {categories.length ? (
+                <div className="library-viewbar__display">
+                  {view === "grid" ? (
+                    <fieldset className="density-switcher">
+                      <legend className="visually-hidden">Grid density</legend>
+                      {(["compact", "comfortable", "spacious"] as const).map((value) => (
+                        <button
+                          key={value}
+                          className={density === value ? "is-active" : ""}
+                          type="button"
+                          aria-label={`${value} grid density`}
+                          aria-pressed={density === value}
+                          onClick={() => setDensity(value)}
+                        >
+                          {value === "compact" ? "•••" : value === "comfortable" ? "••" : "•"}
+                        </button>
+                      ))}
+                    </fieldset>
+                  ) : null}
+                  <div className="view-switcher" role="group" aria-label="Library view">
+                    <button
+                      className={view === "grid" ? "is-active" : ""}
+                      type="button"
+                      aria-label="Grid view"
+                      aria-pressed={view === "grid"}
+                      onClick={() => setView("grid")}
+                    >
+                      Grid
+                    </button>
+                    <button
+                      className={view === "list" ? "is-active" : ""}
+                      type="button"
+                      aria-label="List view"
+                      aria-pressed={view === "list"}
+                      onClick={() => setView("list")}
+                    >
+                      List
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {!items.length ? (
+                <section className="library-empty">
+                  <div className="library-empty__art" aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+                  <span className="section-eyebrow">A clean slate</span>
+                  <h2>Save your first reaction</h2>
+                  <p>Right-click an image on the web and choose “Save to GoPaste.”</p>
+                </section>
+              ) : !visibleItems.length ? (
+                <section className="library-empty">
+                  <span className="section-eyebrow">No matches</span>
+                  <h2>Nothing fits these filters</h2>
+                  <p>Clear a filter or try a broader search.</p>
+                  <button
+                    className="button button--secondary"
+                    type="button"
+                    onClick={() => {
+                      setSearch("");
+                      setTag("");
+                      setFormat("");
+                      setSource("");
+                      setCategory("");
+                      setSize("");
+                      setCreatedFrom("");
+                      setCreatedTo("");
+                      setFavoriteOnly(false);
+                    }}
+                  >
+                    Clear filters
+                  </button>
+                </section>
+              ) : (
+                <>
+                  <div className={`library-items library-items--${view} density--${density}`}>
+                    {visibleItems.map((item) => (
+                      <MediaItem
+                        key={item.id}
+                        item={item}
+                        selected={selectedIds.has(item.id)}
+                        view={view}
+                        onSelect={selectItem}
+                        onFavorite={(target) =>
+                          void updateItem(target, { favorite: !target.favorite })
+                        }
+                        onOpen={setActiveItem}
+                        defaultAction={initialDefaultAction}
+                        onUse={(target) => void performDefaultAction(target)}
+                        onDrag={dragItem}
+                      />
+                    ))}
+                  </div>
+                  {nextCursor ? (
+                    <button
+                      className="button button--secondary load-more"
+                      type="button"
+                      disabled={loadingMore}
+                      onClick={() => void loadMore()}
+                    >
+                      {loadingMore ? "Loading more…" : "Load more"}
+                    </button>
+                  ) : null}
+                </>
+              )}
+
+              {selectedItems.length ? (
+                <div className="bulk-bar" role="region" aria-label="Bulk actions">
+                  <strong>{selectedItems.length} selected</strong>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void bulkUpdate({ favorite: true })}
+                  >
+                    ★ Favorite
+                  </button>
                   <div className="bulk-bar__tag">
                     <label>
-                      <span className="visually-hidden">Add selected items to category</span>
-                      <select
-                        value={bulkCategory}
-                        onChange={(event) => setBulkCategory(event.target.value)}
-                      >
-                        <option value="">Add to category…</option>
-                        {categories.map((value) => (
-                          <option key={value.id} value={value.id}>
-                            {value.name}
-                          </option>
-                        ))}
-                      </select>
+                      <span className="visually-hidden">Tag selected items</span>
+                      <input
+                        value={bulkTag}
+                        onChange={(event) => setBulkTag(event.target.value)}
+                        placeholder="Add a tag"
+                      />
                     </label>
                     <button
                       type="button"
-                      disabled={busy || !bulkCategory}
-                      onClick={() => void bulkUpdate({ addCategoryIds: [bulkCategory] })}
+                      disabled={busy || !bulkTag.trim()}
+                      onClick={() => void bulkUpdate({ addTags: normalizeTags(bulkTag) })}
                     >
-                      Add
+                      Apply
                     </button>
                   </div>
-                ) : null}
-                <button type="button" disabled={busy} onClick={() => void copySelectedSources()}>
-                  Copy links
-                </button>
-                <button
-                  className="bulk-bar__danger"
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void deleteItems(selectedItems)}
-                >
-                  Delete
-                </button>
-                <button
-                  className="icon-button"
-                  type="button"
-                  aria-label="Clear selection"
-                  onClick={() => setSelectedIds(new Set())}
-                >
-                  ×
-                </button>
+                  {categories.length ? (
+                    <div className="bulk-bar__tag">
+                      <label>
+                        <span className="visually-hidden">Add selected items to category</span>
+                        <select
+                          value={bulkCategory}
+                          onChange={(event) => setBulkCategory(event.target.value)}
+                        >
+                          <option value="">Add to category…</option>
+                          {categories.map((value) => (
+                            <option key={value.id} value={value.id}>
+                              {value.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button
+                        type="button"
+                        disabled={busy || !bulkCategory}
+                        onClick={() => void bulkUpdate({ addCategoryIds: [bulkCategory] })}
+                      >
+                        Add
+                      </button>
+                    </div>
+                  ) : null}
+                  <button type="button" disabled={busy} onClick={() => void copySelectedSources()}>
+                    Copy links
+                  </button>
+                  <button
+                    className="bulk-bar__danger"
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void deleteItems(selectedItems)}
+                  >
+                    Delete
+                  </button>
+                  <button
+                    className="icon-button"
+                    type="button"
+                    aria-label="Clear selection"
+                    onClick={() => setSelectedIds(new Set())}
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : null}
+            </section>
+          ) : customSection ? (
+            customSection
+          ) : (
+            <section className="dashboard-section dashboard-placeholder">
+              <SectionHeader {...SECTION_COPY[section]} />
+              <div>
+                <span className="dashboard-placeholder__mark" aria-hidden="true">
+                  {NAVIGATION.find((item) => item.id === section)?.shortLabel}
+                </span>
+                <h2>Ready for local tools</h2>
+                <p>
+                  This workspace will use the same on-device library shown in Overview and Library.
+                </p>
               </div>
-            ) : null}
-          </section>
-        ) : customSection ? (
-          customSection
-        ) : (
-          <section className="dashboard-section dashboard-placeholder">
-            <SectionHeader {...SECTION_COPY[section]} />
-            <div>
-              <span className="dashboard-placeholder__mark" aria-hidden="true">
-                {NAVIGATION.find((item) => item.id === section)?.shortLabel}
-              </span>
-              <h2>Ready for local tools</h2>
-              <p>
-                This workspace will use the same on-device library shown in Overview and Library.
-              </p>
-            </div>
-          </section>
-        )}
+            </section>
+          )}
+        </div>
       </div>
 
       {activeItem ? (

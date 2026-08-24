@@ -87,6 +87,13 @@ describe("DashboardShell", () => {
     ]) {
       expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
     }
+
+    fireEvent.click(screen.getByRole("button", { name: "Library" }));
+    const libraryHeading = await screen.findByRole("heading", { name: "Library" });
+    expect(libraryHeading.closest(".dashboard-workspace")).toHaveAttribute(
+      "data-section",
+      "library",
+    );
   });
 
   it("filters and sorts records, changes layout controls, and persists favorites", async () => {
