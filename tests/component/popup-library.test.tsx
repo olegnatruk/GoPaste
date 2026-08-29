@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PopupShell, type PopupLibrary } from "../../src/popup/PopupShell";
@@ -117,6 +117,9 @@ describe("PopupShell", () => {
     expect(screen.queryByText("Delete")).not.toBeInTheDocument();
     expect(screen.queryByText("Big Laugh")).not.toBeInTheDocument();
     expect(screen.queryByText("Funny")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Dragging image file. Drop it into Messenger."),
+    ).not.toBeInTheDocument();
   });
 
   it("copies a thumbnail as binary media without supplying a source URL", async () => {
@@ -170,5 +173,42 @@ describe("PopupShell", () => {
     view.unmount();
     expect(unsubscribe).toHaveBeenCalledOnce();
     expect(URL.revokeObjectURL).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the current scroll position while the library refreshes", async () => {
+    const first = createMediaRecord({ id: "first", title: "Newest" });
+    const refreshed = createMediaRecord({ id: "refreshed", title: "Refreshed" });
+    let resolveRefresh: (page: { items: Array<typeof first> }) => void = () => undefined;
+    const refreshPage = new Promise<{ items: Array<typeof first> }>((resolve) => {
+      resolveRefresh = resolve;
+    });
+    const list = vi
+      .fn()
+      .mockResolvedValueOnce({ items: [first] })
+      .mockReturnValueOnce(refreshPage);
+    let notifyLibraryChanged = () => undefined;
+    const subscribe = vi.fn((onChange: () => void) => {
+      notifyLibraryChanged = onChange;
+      return vi.fn();
+    });
+
+    render(<PopupShell library={createLibrary({ list })} subscribeToLibraryChanges={subscribe} />);
+
+    expect(
+      await screen.findByRole("button", { name: "Copy Newest to clipboard" }),
+    ).toBeInTheDocument();
+    const popup = screen.getByRole("main");
+    popup.scrollTop = 180;
+    fireEvent.scroll(popup);
+
+    act(() => notifyLibraryChanged());
+    expect(screen.queryByText("Loading your library…")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy Newest to clipboard" })).toBeInTheDocument();
+
+    await act(async () => resolveRefresh({ items: [refreshed] }));
+    expect(
+      await screen.findByRole("button", { name: "Copy Refreshed to clipboard" }),
+    ).toBeInTheDocument();
+    expect(popup.scrollTop).toBe(180);
   });
 });

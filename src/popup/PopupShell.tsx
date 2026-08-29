@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+} from "react";
 
 import type { DashboardCategory, DashboardMediaQuery } from "../core/domain/dashboard";
 import type { MediaRecord } from "../core/domain/media";
@@ -131,6 +139,11 @@ export function PopupShell({
   const [copyConfirmation, setCopyConfirmation] = useState<{ itemId: string; key: number }>();
   const copyConfirmationTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const copyConfirmationCounter = useRef(0);
+  const scrollContainer = useRef<HTMLElement>(null);
+  const scrollPosition = useRef(0);
+  const restoreScrollAfterRefresh = useRef(false);
+  const loadedQueryKey = useRef<string>();
+  const latestLoadRequest = useRef(0);
   const defaultClipboardWriter = useMemo(() => new BrowserClipboardWriter(), []);
   const writer = clipboardWriter ?? defaultClipboardWriter;
 
@@ -141,24 +154,41 @@ export function PopupShell({
     }),
     [category],
   );
+  const queryKey = category || "all";
 
   const loadFirstPage = useCallback(async () => {
-    setLoading(true);
+    const requestId = ++latestLoadRequest.current;
+    const isBackgroundRefresh = loadedQueryKey.current === queryKey;
+    if (isBackgroundRefresh) {
+      scrollPosition.current = scrollContainer.current?.scrollTop ?? scrollPosition.current;
+      restoreScrollAfterRefresh.current = true;
+    } else {
+      setLoading(true);
+    }
     setError(undefined);
     try {
       const page = await library.list(query);
+      if (requestId !== latestLoadRequest.current) return;
       setItems(page.items);
       setNextCursor(page.nextCursor);
+      loadedQueryKey.current = queryKey;
     } catch (loadError) {
+      if (requestId !== latestLoadRequest.current) return;
       setError(loadError instanceof Error ? loadError.message : "The library could not be loaded.");
     } finally {
-      setLoading(false);
+      if (requestId === latestLoadRequest.current) setLoading(false);
     }
-  }, [library, query]);
+  }, [library, query, queryKey]);
 
   useEffect(() => {
     void loadFirstPage();
   }, [loadFirstPage, refreshToken]);
+
+  useLayoutEffect(() => {
+    if (!restoreScrollAfterRefresh.current || !scrollContainer.current) return;
+    scrollContainer.current.scrollTop = scrollPosition.current;
+    restoreScrollAfterRefresh.current = false;
+  }, [items]);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -225,11 +255,7 @@ export function PopupShell({
       setNotice("This image could not be prepared for drag and drop.");
       return;
     }
-    setNotice(
-      result === "file"
-        ? "Dragging image file. Drop it into Messenger."
-        : "File drag is unavailable; dragging the original image link instead.",
-    );
+    setNotice(undefined);
     void onDragUsage?.(item);
   }
 
@@ -256,7 +282,13 @@ export function PopupShell({
   const captureNotice = captureStatus ? captureMessage(captureStatus) : undefined;
 
   return (
-    <main className="surface surface--popup">
+    <main
+      ref={scrollContainer}
+      className="surface surface--popup"
+      onScroll={(event) => {
+        scrollPosition.current = event.currentTarget.scrollTop;
+      }}
+    >
       <header className="surface__header popup-header">
         <div className="brand-lockup">
           <BrandMark />
