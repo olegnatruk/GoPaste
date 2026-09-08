@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "GoPaste",
   "description": "Save, organize, and share images and GIFs from a local library.",
-  "version": "0.1.1",
+  "version": "0.1.6",
   "permissions": [
     "clipboardWrite",
     "contextMenus",
@@ -12,6 +12,15 @@
     "unlimitedStorage"
   ],
   "host_permissions": ["<all_urls>"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["assets/attachment-bridge.js"],
+      "all_frames": true,
+      "match_origin_as_fallback": true,
+      "run_at": "document_start"
+    }
+  ],
   "action": {
     "default_title": "Open GoPaste",
     "default_popup": "popup.html",

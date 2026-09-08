@@ -5,11 +5,13 @@ import "../shared/styles.css";
 import { PopupShell } from "./PopupShell";
 import { loadCaptureStatus, popupLibrary, subscribeToLibraryChanges } from "./runtime";
 import { IndexedDbDashboardRepository } from "../infrastructure/indexeddb/dashboard-repository";
+import { installAttachmentBridgeInOpenTabs } from "../attachment-bridge-installer";
 import { installMessengerDropBridge } from "./messenger-drop-bridge";
 import "./popup.css";
 
 const rootElement = document.getElementById("root");
 const dashboardRepository = new IndexedDbDashboardRepository();
+void installAttachmentBridgeInOpenTabs().catch(() => undefined);
 void installMessengerDropBridge().catch(() => undefined);
 
 if (!rootElement) {

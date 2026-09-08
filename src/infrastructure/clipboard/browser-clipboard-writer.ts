@@ -17,7 +17,7 @@ export interface ClipboardEnvironment {
   ClipboardItem?: ClipboardItemFactory;
 }
 
-export const GOPASTE_CLIPBOARD_MEDIA_PREFIX = "gopaste-media:";
+export const GOPASTE_CLIPBOARD_MEDIA_PREFIX = "gopaste-media-v2:";
 
 function browserEnvironment(): ClipboardEnvironment {
   return {

@@ -2,7 +2,10 @@ import { portableSourceUrl } from "./browser-clipboard-writer";
 import type { MediaRecord } from "../../core/domain/media";
 
 export type ImageDragResult = "file" | "url" | "none";
-export const GOPASTE_MEDIA_DRAG_TYPE = "application/x-gopaste-media";
+// A versioned private marker lets the current bridge bypass listeners left in
+// already-open tabs by an older extension build.
+export const GOPASTE_MEDIA_DRAG_TYPE = "application/x-gopaste-media-v2";
+export const GOPASTE_MEDIA_URI_MARKER = "gopaste-media-v2";
 
 type FileDragDataTransfer = Pick<DataTransfer, "setData" | "effectAllowed"> & {
   items: Pick<DataTransferItemList, "add">;
@@ -25,15 +28,17 @@ function addPortableSourceData(
 ): boolean {
   const url = portableSourceUrl(sourceUrl);
   if (!url) return false;
-  const uriList = mediaId ? `# gopaste-media=${encodeURIComponent(mediaId)}\n${url}` : url;
+  const uriList = mediaId
+    ? `# ${GOPASTE_MEDIA_URI_MARKER}=${encodeURIComponent(mediaId)}\n${url}`
+    : url;
   dataTransfer.setData("text/uri-list", uriList);
   dataTransfer.setData("text/plain", url);
   return true;
 }
 
 /**
- * Adds a real image File synchronously during dragstart, which chat targets
- * such as Messenger can receive as an attachment. A source URL is included as
+ * Adds a real image File synchronously during dragstart, which compatible
+ * websites can receive as an attachment. A source URL is included as
  * a compatibility fallback for targets that only accept links.
  */
 export function setImageFileDragData(

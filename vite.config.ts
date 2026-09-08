@@ -13,10 +13,14 @@ export default defineConfig({
         options: resolve(import.meta.dirname, "options.html"),
         dashboard: resolve(import.meta.dirname, "dashboard.html"),
         background: resolve(import.meta.dirname, "src/background/main.ts"),
+        attachmentBridge: resolve(import.meta.dirname, "src/content/attachment-bridge-entry.ts"),
       },
       output: {
-        entryFileNames: (chunk) =>
-          chunk.name === "background" ? "assets/background.js" : "assets/[name]-[hash].js",
+        entryFileNames: (chunk) => {
+          if (chunk.name === "background") return "assets/background.js";
+          if (chunk.name === "attachmentBridge") return "assets/attachment-bridge.js";
+          return "assets/[name]-[hash].js";
+        },
         chunkFileNames: "assets/[name]-[hash].js",
         assetFileNames: "assets/[name]-[hash][extname]",
       },

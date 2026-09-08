@@ -49,12 +49,15 @@ async function blobToBase64(blob: Blob): Promise<string> {
   return btoa(binary);
 }
 
-function isMessengerAttachmentRequest(
+function isAttachmentResolveRequest(
   value: unknown,
-): value is { type: "messenger/attachment"; mediaId: string } {
+): value is { type: "attachment/resolve" | "messenger/attachment"; mediaId: string } {
   if (!value || typeof value !== "object") return false;
   const candidate = value as { type?: unknown; mediaId?: unknown };
-  return candidate.type === "messenger/attachment" && typeof candidate.mediaId === "string";
+  return (
+    (candidate.type === "attachment/resolve" || candidate.type === "messenger/attachment") &&
+    typeof candidate.mediaId === "string"
+  );
 }
 
 function ensureContextMenu(): void {
@@ -102,7 +105,7 @@ chrome.commands.onCommand.addListener((command) => {
 });
 
 chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
-  if (isMessengerAttachmentRequest(message)) {
+  if (isAttachmentResolveRequest(message)) {
     void repository
       .getById(message.mediaId)
       .then(async (media) => {

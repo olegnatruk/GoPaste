@@ -1,8 +1,9 @@
-const MESSENGER_MEDIA_DRAG_TYPE = "application/x-gopaste-media";
 const MESSENGER_ATTACHMENT_MESSAGE = "messenger/attachment";
-const MESSENGER_MEDIA_CLIPBOARD_PREFIX = "gopaste-media:";
+const MESSENGER_MEDIA_DRAG_TYPE = "application/x-gopaste-media-v2";
+const MESSENGER_MEDIA_URI_MARKER = "gopaste-media-v2";
+const MESSENGER_MEDIA_CLIPBOARD_PREFIX = "gopaste-media-v2:";
 
-/** Installs a drop bridge in every open Messenger conversation tab. */
+/** Keeps Messenger on its known-good attachment path while other sites use the generic bridge. */
 export async function installMessengerDropBridge(): Promise<void> {
   if (typeof chrome === "undefined" || !chrome.tabs?.query || !chrome.scripting?.executeScript) {
     return;
@@ -18,28 +19,28 @@ export async function installMessengerDropBridge(): Promise<void> {
   });
   await Promise.all(
     tabs
-      .filter((tab) => tab.id !== undefined)
+      .filter((tab): tab is chrome.tabs.Tab & { id: number } => tab.id !== undefined)
       .map((tab) =>
         chrome.scripting.executeScript({
-          target: { tabId: tab.id as number },
-          func: installDropListener,
+          target: { tabId: tab.id },
+          func: installMessengerDropListener,
         }),
       ),
   );
 }
 
-function installDropListener() {
-  const markerType = "application/x-gopaste-media";
+function installMessengerDropListener() {
+  const markerType = "application/x-gopaste-media-v2";
   const messageType = "messenger/attachment";
-  const clipboardPrefix = "gopaste-media:";
+  const uriMarker = "gopaste-media-v2";
+  const clipboardPrefix = "gopaste-media-v2:";
   const installationKey = "__gopasteMessengerDropBridge";
   const host = window as Window & { [installationKey]?: (() => void) | boolean };
   const existingCleanup = host[installationKey];
   if (typeof existingCleanup === "function") existingCleanup();
 
   function toast(message: string, isError = false) {
-    const existing = document.getElementById("gopaste-messenger-drop-status");
-    existing?.remove();
+    document.getElementById("gopaste-messenger-drop-status")?.remove();
     const notice = document.createElement("div");
     notice.id = "gopaste-messenger-drop-status";
     notice.textContent = `GoPaste: ${message}`;
@@ -72,16 +73,8 @@ function installDropListener() {
     );
   }
 
-  function bytesFromBase64(base64: string): ArrayBuffer {
-    const binary = atob(base64);
-    const buffer = new ArrayBuffer(binary.length);
-    const bytes = new Uint8Array(buffer);
-    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
-    return buffer;
-  }
-
-  function markerFromUriList(value: string): string | undefined {
-    const match = value.match(/^#\s*gopaste-media=([^\s]+)/m);
+  function mediaIdFromUriList(value: string): string | undefined {
+    const match = value.match(new RegExp(`^#\\s*${uriMarker}=([^\\s]+)`, "m"));
     if (!match?.[1]) return undefined;
     try {
       return decodeURIComponent(match[1]);
@@ -90,10 +83,17 @@ function installDropListener() {
     }
   }
 
-  function markerFromClipboard(value: string): string | undefined {
+  function mediaIdFromClipboard(value: string): string | undefined {
     if (!value.startsWith(clipboardPrefix)) return undefined;
-    const mediaId = value.slice(clipboardPrefix.length).trim();
-    return mediaId || undefined;
+    return value.slice(clipboardPrefix.length).trim() || undefined;
+  }
+
+  function bytesFromBase64(base64: string): ArrayBuffer {
+    const binary = atob(base64);
+    const buffer = new ArrayBuffer(binary.length);
+    const bytes = new Uint8Array(buffer);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    return buffer;
   }
 
   async function attachMedia(mediaId: string) {
@@ -112,7 +112,6 @@ function installDropListener() {
       attachment?: { base64: string; filename: string; mimeType: string };
     };
     if (!payload.ok || !payload.attachment) throw new Error("Image could not be loaded.");
-
     const input = attachmentInput();
     if (!input) throw new Error("Messenger's attachment input was not found.");
     const file = new File(
@@ -130,29 +129,24 @@ function installDropListener() {
     toast("Image attached to Messenger.");
   }
 
-  const handleDrop = (event: DragEvent) => {
-    const mediaId =
+  function handle(mediaId: string | undefined, event: DragEvent | ClipboardEvent) {
+    if (!mediaId) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    void attachMedia(mediaId).catch((error: unknown) => {
+      toast(error instanceof Error ? error.message : "Image could not be attached.", true);
+    });
+  }
+
+  const handleDrop = (event: DragEvent) =>
+    handle(
       event.dataTransfer?.getData(markerType) ||
-      markerFromUriList(event.dataTransfer?.getData("text/uri-list") ?? "");
-    if (!mediaId) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    void attachMedia(mediaId).catch((error: unknown) => {
-      toast(error instanceof Error ? error.message : "Image could not be attached.", true);
-    });
-  };
+        mediaIdFromUriList(event.dataTransfer?.getData("text/uri-list") ?? ""),
+      event,
+    );
+  const handlePaste = (event: ClipboardEvent) =>
+    handle(mediaIdFromClipboard(event.clipboardData?.getData("text/plain") ?? ""), event);
 
-  const handlePaste = (event: ClipboardEvent) => {
-    const mediaId = markerFromClipboard(event.clipboardData?.getData("text/plain") ?? "");
-    if (!mediaId) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    void attachMedia(mediaId).catch((error: unknown) => {
-      toast(error instanceof Error ? error.message : "Image could not be attached.", true);
-    });
-  };
-
-  // Window capture runs before legacy document listeners left behind by an extension reload.
   window.addEventListener("drop", handleDrop, true);
   window.addEventListener("paste", handlePaste, true);
   const cleanup = () => {
@@ -164,7 +158,8 @@ function installDropListener() {
 }
 
 export const messengerDropBridgeContracts = {
-  markerType: MESSENGER_MEDIA_DRAG_TYPE,
-  messageType: MESSENGER_ATTACHMENT_MESSAGE,
   clipboardPrefix: MESSENGER_MEDIA_CLIPBOARD_PREFIX,
+  mediaDragType: MESSENGER_MEDIA_DRAG_TYPE,
+  mediaUriMarker: MESSENGER_MEDIA_URI_MARKER,
+  messageType: MESSENGER_ATTACHMENT_MESSAGE,
 };
