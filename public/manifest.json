@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "GoPaste",
   "description": "Save, organize, and share images and GIFs from a local library.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "permissions": [
     "clipboardWrite",
     "contextMenus",
