@@ -25,7 +25,7 @@ export function MediaShareActions({ item, clipboardWriter, onUsage }: MediaShare
   async function copyFromUserGesture() {
     setStatus({ state: "copying", message: "Copying…" });
     try {
-      const result = await writer.writeImage(item.blob, item.sourceUrl);
+      const result = await writer.writeImage(item.blob, item.sourceUrl, item.id);
       setStatus(
         result.method === "binary"
           ? { state: "success", message: "Binary image copied." }
@@ -46,7 +46,10 @@ export function MediaShareActions({ item, clipboardWriter, onUsage }: MediaShare
   function startDrag(event: DragEvent<HTMLButtonElement>) {
     const result = setImageFileDragData(event.dataTransfer, item);
     if (result === "file") {
-      setStatus({ state: "success", message: "Dragging image file. Drop it into Messenger." });
+      setStatus({
+        state: "success",
+        message: "Dragging image file. Drop it into a compatible website.",
+      });
       void onUsage?.("drag");
       return;
     }
@@ -81,7 +84,7 @@ export function MediaShareActions({ item, clipboardWriter, onUsage }: MediaShare
         draggable
         onDragStart={startDrag}
         aria-describedby={statusId}
-        title="Drag the image file into Messenger or another chat"
+        title="Drag the image file into a compatible website"
       >
         Drag to chat
       </button>

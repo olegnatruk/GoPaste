@@ -17,6 +17,11 @@ describe("MediaShareActions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Copy" }));
 
     expect(writeImage).toHaveBeenCalledOnce();
+    expect(writeImage).toHaveBeenCalledWith(
+      expect.any(Blob),
+      "https://example.test/example.gif",
+      "018f0000-0000-7000-8000-000000000001",
+    );
     expect(await screen.findByRole("status")).toHaveTextContent("Binary image copied.");
     expect(onUsage).toHaveBeenCalledWith("copy");
   });
@@ -52,11 +57,11 @@ describe("MediaShareActions", () => {
     expect(add).toHaveBeenCalledOnce();
     expect(setData).toHaveBeenCalledWith(
       "text/uri-list",
-      "# gopaste-media=018f0000-0000-7000-8000-000000000001\nhttps://example.test/example.gif",
+      "# gopaste-media-v2=018f0000-0000-7000-8000-000000000001\nhttps://example.test/example.gif",
     );
     expect(onUsage).toHaveBeenCalledWith("drag");
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Dragging image file. Drop it into Messenger.",
+      "Dragging image file. Drop it into a compatible website.",
     );
   });
 });

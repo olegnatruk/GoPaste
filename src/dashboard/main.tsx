@@ -10,8 +10,9 @@ import "../shared/styles.css";
 import "./dashboard.css";
 import { DashboardShell, type DashboardLibraryService } from "./DashboardShell";
 import { DashboardSections } from "./DashboardSections";
-import { installMessengerDropBridge } from "../popup/messenger-drop-bridge";
 import { MESSAGE_VERSION } from "../shared/messages";
+import { installAttachmentBridgeInOpenTabs } from "../attachment-bridge-installer";
+import { installMessengerDropBridge } from "../popup/messenger-drop-bridge";
 
 interface DashboardAppProps {
   repository: DashboardRepository;
@@ -80,5 +81,6 @@ function mountDashboard(
 }
 
 const rootElement = document.getElementById("root");
+void installAttachmentBridgeInOpenTabs().catch(() => undefined);
 void installMessengerDropBridge().catch(() => undefined);
 if (rootElement) mountDashboard(rootElement);

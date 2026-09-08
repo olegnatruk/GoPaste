@@ -778,10 +778,10 @@ export function DashboardShell({
         return;
       }
       if (initialDefaultAction === "drag") {
-        setNotice("Drag the “Drag file” button into Messenger or another compatible chat.");
+        setNotice("Drag the file into a compatible website.");
         return;
       }
-      await clipboardWriter.writeImage(item.blob, item.sourceUrl);
+      await clipboardWriter.writeImage(item.blob, item.sourceUrl, item.id);
       await service.recordUsage?.(item.id, "copy");
       setNotice("Image copied using your dashboard default.");
     } catch (actionError) {
@@ -801,7 +801,7 @@ export function DashboardShell({
     void service.recordUsage?.(item.id, "drag");
     setNotice(
       result === "file"
-        ? "Dragging image file. Drop it into Messenger."
+        ? "Dragging image file. Drop it into a compatible website."
         : "File drag is unavailable; dragging the original image link instead.",
     );
   }

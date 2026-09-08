@@ -142,7 +142,7 @@ export function PopupShell({
   const scrollContainer = useRef<HTMLElement>(null);
   const scrollPosition = useRef(0);
   const restoreScrollAfterRefresh = useRef(false);
-  const loadedQueryKey = useRef<string>();
+  const loadedQueryKey = useRef<string | undefined>(undefined);
   const latestLoadRequest = useRef(0);
   const defaultClipboardWriter = useMemo(() => new BrowserClipboardWriter(), []);
   const writer = clipboardWriter ?? defaultClipboardWriter;

@@ -118,7 +118,7 @@ describe("PopupShell", () => {
     expect(screen.queryByText("Big Laugh")).not.toBeInTheDocument();
     expect(screen.queryByText("Funny")).not.toBeInTheDocument();
     expect(
-      screen.queryByText("Dragging image file. Drop it into Messenger."),
+      screen.queryByText("Dragging image file. Drop it into a compatible website."),
     ).not.toBeInTheDocument();
   });
 
@@ -143,7 +143,7 @@ describe("PopupShell", () => {
     await waitFor(() => expect(writeImage).toHaveBeenCalledWith(item.blob, undefined, item.id));
     expect(await screen.findByTestId("copy-confirmation")).toBeInTheDocument();
     expect(
-      screen.queryByText("Image copied. Paste in Messenger to attach it."),
+      screen.queryByText("Image copied. Paste in a compatible website to attach it."),
     ).not.toBeInTheDocument();
     expect(onCopyUsage).toHaveBeenCalledWith(item);
   });
@@ -186,7 +186,7 @@ describe("PopupShell", () => {
       .fn()
       .mockResolvedValueOnce({ items: [first] })
       .mockReturnValueOnce(refreshPage);
-    let notifyLibraryChanged = () => undefined;
+    let notifyLibraryChanged: () => void = () => undefined;
     const subscribe = vi.fn((onChange: () => void) => {
       notifyLibraryChanged = onChange;
       return vi.fn();

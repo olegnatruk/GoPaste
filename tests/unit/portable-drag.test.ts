@@ -56,9 +56,11 @@ describe("setImageFileDragData", () => {
     expect(add).toHaveBeenCalledOnce();
     expect(add.mock.calls[0]?.[0]).toMatchObject({ name: "Big - Laugh.gif", type: "image/gif" });
     expect(values.get("text/uri-list")).toBe(
-      "# gopaste-media=018f0000-0000-7000-8000-000000000001\nhttps://example.test/example.gif",
+      "# gopaste-media-v2=018f0000-0000-7000-8000-000000000001\nhttps://example.test/example.gif",
     );
-    expect(values.get("application/x-gopaste-media")).toBe("018f0000-0000-7000-8000-000000000001");
+    expect(values.get("application/x-gopaste-media-v2")).toBe(
+      "018f0000-0000-7000-8000-000000000001",
+    );
   });
 
   it("falls back to a source link only when file drag cannot be created", () => {
