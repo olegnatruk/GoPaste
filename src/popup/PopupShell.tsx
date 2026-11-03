@@ -34,6 +34,7 @@ export interface PopupShellProps {
   onCopyUsage?: (item: MediaRecord) => void | Promise<void>;
   onDragUsage?: (item: MediaRecord) => void | Promise<void>;
   onOpenDashboard?: () => void;
+  onOpenCodeChum?: () => void;
 }
 
 function captureMessage(status: CaptureStatus): string | undefined {
@@ -125,6 +126,7 @@ export function PopupShell({
   onCopyUsage,
   onDragUsage,
   onOpenDashboard,
+  onOpenCodeChum,
 }: PopupShellProps) {
   const [items, setItems] = useState<MediaRecord[]>([]);
   const [categories, setCategories] = useState<DashboardCategory[]>([]);
@@ -298,6 +300,11 @@ export function PopupShell({
           </div>
         </div>
         <div className="popup-header__actions">
+          {onOpenCodeChum ? (
+            <button type="button" onClick={onOpenCodeChum}>
+              CodeChum
+            </button>
+          ) : null}
           {onOpenDashboard ? (
             <button type="button" onClick={onOpenDashboard}>
               Dashboard

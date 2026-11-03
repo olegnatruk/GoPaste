@@ -1,5 +1,21 @@
 # Compatibility
 
+## Recitation recovery — 2026-10-06
+
+The 0.2.3 build requests independently written code and treats Gemini's `RECITATION` outcome as **Original solution needed**, rather than an application crash. Blocked output is discarded without automatic retry/model fallback. The user can save optional algorithm notes and explicitly request an original solution; notes are capped at 4,000 characters and included under the existing account-specific consent. Legacy stored recitation errors also display the recovery controls.
+
+All 138 tests across 24 suites passed, along with formatting, lint, typecheck, extension build, and the privacy-policy build. The 42 targeted Gemini/UI/routing regressions include a mocked worker start through recitation: stopped running state, WAIT badge, no error badge, no editor mutation or blocked checkpoint, and consent-checked bounded notes. These are mocked tests, not a live successful generation. Manual Chrome/Gemini verification with the user's API project remains pending, and the provider may still withhold output. The updated privacy source has not been deployed.
+
+## Gemini failure correction — 2026-10-06
+
+The 0.2.2 build uses Gemini 3 Flash first and preserves the cause when Gemini returns no answer. The prior parser silently discarded HTTP 200 responses with no candidates, no final text, or invalid JSON, leaving the generic “All Gemini models failed” message. Requests now use the documented Gemini 3 default temperature and low thinking, filter thought parts, retry token exhaustion once with a larger budget, stop on blocked prompts/access failures, and report each unsuccessful model's reason with the API key redacted. All 22 Gemini regressions and all 128 app tests passed, along with formatting, lint, typecheck, and the production build. Mocked tests verify these responses, consent/abort behavior, and timeout cleanup. Live generation with the user's API project is not yet verified; model access and quota remain provider-controlled.
+
+## Combined extension verification — 2026-09-30
+
+The 0.2.1 combined build passed GoPaste's formatting, lint, typecheck, 106 Vitest tests, and Vite build. The standalone CodeChum reference suite passed 66 Node tests locally. The privacy-policy Vite build also passed. The resulting ZIP contains the in-popup CodeChum view, optional `codechum.html`, one Manifest V3 worker, and no `CODECHUM-HACK/` source, admin site, web site, or store screenshots. These are automated/source checks only.
+
+Manual Chrome checks are still required before submitting the update: load `dist/`, confirm GoPaste capture/copy/drag and dashboard flows, switch between library and CodeChum within the popup, sign in to CodeChum, verify its selected tab and test cases, consent with an account-specific key, start and stop a candidate via buttons and shortcuts, manually run CodeChum's Check code, resume after feedback, and retest after the service worker sleeps/restarts. No live Supabase or Gemini request was made during the automated suite, so their current integration is not yet verified end-to-end. Redeploy the updated privacy-policy site before pointing a Store listing at it.
+
 ## Product Target
 
 Chrome stable on desktop. The current development environment is macOS; results for Windows, Linux, and destination apps must not be claimed until tested there.

@@ -1,14 +1,15 @@
 {
   "manifest_version": 3,
-  "name": "GoPaste",
-  "description": "Save, organize, and share images and GIFs from a local library.",
-  "version": "0.1.6",
+  "name": "GoPaste — Library & CodeChum",
+  "description": "Save and share images and GIFs locally; use an optional CodeChum coding assistant with Gemini.",
+  "version": "0.2.3",
   "permissions": [
     "clipboardWrite",
     "contextMenus",
     "downloads",
     "pageCapture",
     "scripting",
+    "storage",
     "unlimitedStorage"
   ],
   "host_permissions": ["<all_urls>"],
@@ -44,6 +45,20 @@
         "mac": "MacCtrl+Shift+G"
       },
       "description": "Open the GoPaste dashboard"
+    },
+    "start-script": {
+      "suggested_key": "Alt+Shift+S",
+      "description": "Start or resume CodeChum assistance on the active problem"
+    },
+    "stop-script": {
+      "suggested_key": "Alt+Shift+X",
+      "description": "Stop CodeChum assistance on the active problem"
+    },
+    "speed-up": {
+      "description": "Increase CodeChum typing speed"
+    },
+    "speed-down": {
+      "description": "Decrease CodeChum typing speed"
     }
   },
   "options_page": "dashboard.html",

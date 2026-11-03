@@ -1,5 +1,6 @@
 import { CaptureImage, systemClock, uuidGenerator } from "./capture";
 import { captureRequestFromContextClick, registerCaptureContextMenu } from "./context-menu";
+import { registerCodeChumBackground } from "./codechum-adapter";
 import { serializeApplicationError } from "../core/domain/errors";
 import { IndexedDbCaptureStatusStore } from "../infrastructure/indexeddb/capture-status-store";
 import { IndexedDbDashboardRepository } from "../infrastructure/indexeddb/dashboard-repository";
@@ -28,6 +29,8 @@ const captureImage = new CaptureImage(
   systemClock,
   uuidGenerator,
 );
+
+registerCodeChumBackground();
 
 function attachmentFileName(title: string, extension: string): string {
   const stem = title

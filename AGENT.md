@@ -10,6 +10,8 @@ The approval gate has been cleared. Keep documentation and task contracts ahead 
 
 The **Local Dashboard Expansion** added to `PLAN.md` was approved on 2026-08-23. Dashboard documentation, task decomposition, delegated implementation, integration, and verification are authorized.
 
+The **disclosed CodeChum integration** added to `PLAN.md` was approved on 2026-09-30. Its exception to the original local-only boundary applies only to CodeChum authentication and Gemini requests; GoPaste library media remains local. The user explicitly chose one combined extension and understands Chrome Web Store approval cannot be guaranteed. Follow the integration contracts and tasks before implementation.
+
 ## Required Workflow After Approval
 
 1. Record the approval and any requested plan changes in `PLAN.md`.

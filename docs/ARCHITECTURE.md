@@ -2,7 +2,7 @@
 
 ## Runtime Surfaces
 
-GoPaste has four Chrome extension surfaces and a shared core:
+GoPaste has five Chrome extension surfaces and a shared core:
 
 ```text
 Chrome context menu
@@ -14,12 +14,14 @@ background service worker --> capture use case --> IndexedDB repository
 popup UI ---------------- application services -------+
 options UI ------------- archive/storage services ----+
 dashboard UI ----------- library/insight services -----+
+CodeChum UI ------------ CodeChum worker --> Supabase / Gemini
 ```
 
 - The **service worker** owns context-menu registration and capture orchestration. It must not rely on durable in-memory state because Chrome can suspend it.
 - The **popup** owns library browsing and item actions. It must remain useful in a narrow viewport and release generated object URLs.
 - The **options page** owns storage statistics and archive import/export.
 - The **dashboard** is a full-page local management surface for overview, library organization, taxonomy, insights, maintenance, backup, and preferences. It reads and writes through local repositories and never requires a network service.
+- The optional **CodeChum page** is a separate, visibly labeled extension view. Its worker handlers authenticate through Supabase, validate the selected CodeChum tab, and request Gemini assistance only with account-specific user consent. They do not read or upload GoPaste media.
 - The **core** contains domain types and pure or adapter-driven use cases. It cannot import React or call Chrome APIs directly.
 - **Adapters** isolate IndexedDB, Chrome APIs, clipboard, drag payloads, hashing, downloads, and ZIP processing.
 
@@ -63,7 +65,7 @@ Expected failures use stable codes such as `FETCH_FAILED`, `UNSUPPORTED_MEDIA`, 
 
 ## Key Decisions
 
-- Local-only storage; no GoPaste server or account.
+- The GoPaste media library is local-only, with no GoPaste server or account. The separately labeled CodeChum assistant uses Supabase sign-in and Gemini; see `docs/CODECHUM_INTEGRATION.md`.
 - Content SHA-256 is the duplicate identity.
 - Broad host permission is expected for arbitrary image capture and must be explained clearly.
 - Clipboard and drag are capability-based; URL fallback is part of the product behavior.

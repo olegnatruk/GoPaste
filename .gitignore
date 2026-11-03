@@ -6,3 +6,7 @@ test-results/
 gopaste-extension.zip
 *.log
 .DS_Store
+**/.env.local
+**/.admin-initial-password
+# Local reference project only; the integrated source lives in src/codechum/.
+CODECHUM-HACK/

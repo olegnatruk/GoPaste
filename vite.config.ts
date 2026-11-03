@@ -12,6 +12,7 @@ export default defineConfig({
         popup: resolve(import.meta.dirname, "popup.html"),
         options: resolve(import.meta.dirname, "options.html"),
         dashboard: resolve(import.meta.dirname, "dashboard.html"),
+        codechum: resolve(import.meta.dirname, "codechum.html"),
         background: resolve(import.meta.dirname, "src/background/main.ts"),
         attachmentBridge: resolve(import.meta.dirname, "src/content/attachment-bridge-entry.ts"),
       },

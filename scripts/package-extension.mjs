@@ -20,6 +20,7 @@ async function addDirectory(zip, directory) {
 
     if (entry.isFile()) {
       const archivePath = relative(distributionDirectory, absolutePath).replaceAll("\\", "/");
+      if (archivePath.startsWith("store-assets/")) continue;
       zip.file(archivePath, await readFile(absolutePath));
     }
   }

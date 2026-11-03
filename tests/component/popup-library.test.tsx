@@ -21,6 +21,17 @@ beforeEach(() => {
 });
 
 describe("PopupShell", () => {
+  it("opens the visibly labeled CodeChum page without replacing the library", async () => {
+    const onOpenCodeChum = vi.fn();
+    render(<PopupShell library={createLibrary()} onOpenCodeChum={onOpenCodeChum} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "CodeChum" }));
+    expect(onOpenCodeChum).toHaveBeenCalledOnce();
+    expect(
+      await screen.findByRole("heading", { name: "Your library is empty" }),
+    ).toBeInTheDocument();
+  });
+
   it("shows loading, empty, error, and capture status states", async () => {
     let rejectLoad: (error: Error) => void = () => undefined;
     const loading = new Promise<never>((_resolve, reject) => {

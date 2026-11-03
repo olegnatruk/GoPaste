@@ -1,5 +1,31 @@
 # GoPaste Implementation Plan
 
+## CodeChum integration — approved for a disclosed combined build
+
+Status: **Approved on 2026-09-30 for implementation.** The user chose to merge the working `CODECHUM-HACK` extension into GoPaste, exclude its `web/` and `admin/` folders from the extension package, and make CodeChum visible and accurately disclosed for a Chrome Web Store submission.
+
+This changes the earlier device-only boundary for the **CodeChum feature only**. The GoPaste image library remains local. CodeChum requires Supabase member authentication and sends selected challenge details to Gemini when the member explicitly starts the solver. The combined privacy policy, listing, and in-product copy must state those facts. The user understands Chrome's single-purpose review may reject two unrelated features in one listing; implementation and accurate disclosure cannot guarantee approval.
+
+### Integration shape
+
+1. Keep the existing GoPaste popup, library, dashboard, media database, and attachment bridge.
+2. Add a plainly labeled CodeChum entry in the popup. It switches to solver controls, sign-in, status, and actual Chrome shortcut assignments inside that popup, with a bundled full-page view available as an option. Do not include the marketing `web/` app or administrator `admin/` app in the package.
+3. Register both products' commands and message handlers in GoPaste's **single** Manifest V3 service worker. Route CodeChum actions explicitly so its listener does not claim GoPaste messages.
+4. Preserve CodeChum's CodeChum-site guard, member access checks, manual Check code step, stopping/resuming behavior, and local checkpoint data. Avoid any background activity before the user invokes CodeChum.
+   The original generic console runner uses `AsyncFunction` on script text. That path requires separate Manifest V3 policy review and must not ship in the combined Store package by default; the CodeChum solver writes candidate text into the editor and leaves execution/checking to CodeChum.
+5. Scope remote access to the existing Supabase project and Gemini API, and document challenge text, test cases, account email/session, and API-key handling accurately. No GoPaste library media is sent to either service.
+6. Bundle all executable code locally. Remove remote font loading from the bundled CodeChum page. Use readable source and no decoy or concealed entry point.
+
+### Delivery order
+
+- Document the architecture, data boundaries, disclosures, and task ownership before code changes.
+- Port the CodeChum worker and script dependencies into the one GoPaste worker, with distinct message and command contracts.
+- Bundle and expose CodeChum's UI inside the popup and an optional extension page while preserving GoPaste's library behavior.
+- Update manifest, package assembly, privacy page, user guide, and store submission notes.
+- Run both projects' automated tests, TypeScript/lint/build checks, inspect the ZIP contents, and record any manual Chrome checks that still need a person.
+
+Exit criterion: a combined unpacked build with both features, no `web/` or `admin/` files in the ZIP, accurate disclosures, and no known cross-feature handler conflicts. Chrome Web Store acceptance remains Google's decision.
+
 > **Current product decision:** Tags are retired from the app interface. Categories are the only user-facing organization method; legacy tag data remains untouched in existing local libraries and backups for compatibility.
 
 ## Local Dashboard Expansion — Approved
